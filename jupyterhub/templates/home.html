@@ -1,0 +1,904 @@
+{%- extends template_path + "/page.html" %}
+
+{%- block stylesheet -%}
+  <link rel="stylesheet" href='{{static_url("css/home.css")}}' type="text/css"/>
+  {#- Vertical Tabs -#}
+  <link rel="stylesheet" href='{{static_url("components/bootstrap-5.0/vertical-tabs/b5vtabs.min.css")}}'>
+{%- endblock -%}
+
+{#- Set some convenience variables -#}
+{%- set named_spawners = user.all_spawners(include_default=False) | list -%}
+{%- set dropdown_lists = spawner_options_form.get("dropdown_lists") -%}
+{%- set additional_spawn_options = custom_config.get("additional_spawn_options", {}) -%}
+{%- set new = "new_jupyterlab" -%} {# id for new jupyterlabs. Cannot contain "-" #}
+
+{#- the macros directory includes macros to create UI elements -#}
+{#- `with context` makes variables in this document available to the imported macros -#}
+{%- import template_path + "/macros/table_macros.jinja" as table_macros with context-%}
+{%- import template_path + "/macros/jlab_config_macros.jinja" as config_macros with context -%}
+
+{%- macro create_announcement() -%}
+<div class="alert bg-info alert-dismissible fade show" style="color: #023d6b;" role="alert">
+  <h4 class="alert-heading">       
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-megaphone-fill" viewBox="0 0 16 16">
+      <path d="M13 2.5a1.5 1.5 0 0 1 3 0v11a1.5 1.5 0 0 1-3 0v-11zm-1 .724c-2.067.95-4.539 1.481-7 1.656v6.237a25.222 25.222 0 0 1 1.088.085c2.053.204 4.038.668 5.912 1.56V3.224zm-8 7.841V4.934c-.68.027-1.399.043-2.008.053A2.02 2.02 0 0 0 0 7v2c0 1.106.896 1.996 1.994 2.009a68.14 68.14 0 0 1 .496.008 64 64 0 0 1 1.51.048zm1.39 1.081c.285.021.569.047.85.078l.253 1.69a1 1 0 0 1-.983 1.187h-.548a1 1 0 0 1-.916-.599l-1.314-2.48a65.81 65.81 0 0 1 1.692.064c.327.017.65.037.966.06z"/>
+    </svg>
+    <span class="align-middle"> {{ custom_config.get("announcement", {}).get("title", "") | safe }} </span>
+  </h4>
+  {{ custom_config.get("announcement", {}).get("body", "")  | safe }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{%- endmacro -%}
+
+
+{%- block main -%}
+<div class="p-4">
+  <div class="d-flex align-items-center fs-1 mb-3">
+    JupyterLabs
+    {#- Button which opens a dialog with id "{{new}}-dialog" #}
+    <button class="btn btn-primary btn-lg new ms-3" data-bs-toggle="modal" data-bs-target="#{{new}}-dialog">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
+        <path d="M8 0a1 1 0 0 1 1 1v6h6a1 1 0 1 1 0 2H9v6a1 1 0 1 1-2 0V9H1a1 1 0 0 1 0-2h6V1a1 1 0 0 1 1-1z"/>
+      </svg>
+      <span class="align-middle">New</span>
+    </button>
+  </div>
+  {#- Create dialog with id "{{new}}-dialog" #}
+  {{ config_macros.create_new_jupyterlab_modal(new) }}  
+
+  {#- Announcement -#}
+  {%- if custom_config.get("announcement", {}).get("show", False) %}
+  {{ create_announcement() }}
+  {%- endif -%}
+
+  <p>You can configure your existing JupyterLabs by expanding the corresponding table row.</p>
+ 
+  {#- Table with existing JupyterLabs -#}
+  <div class="table-responsive">
+    <table id="jupyterlabs-table" class="table table-bordered table-striped table-hover table-light align-middle">
+      <thead class="table-secondary">
+        <tr>
+          <th scope="col"></th> {#- Open/close details -#}
+          <th scope="col">Name</th>
+          <th scope="col">System</th>
+          <th scope="col">Partition</th>
+          <th scope="col">Project</th>
+          <th scope="col" style="width: 275px;">Status</th> {#- Status -#}
+          <th scope="col" style="width: 210px;">Actions</th> {#- Actions -#}
+        </tr>
+      </thead>
+
+      {#- Loop through named_spawners and display content depending on if there are any configurations to be shown #}
+      <tbody>
+        {%- set tbody_ns = namespace(table_has_rows=false) -%}
+        {%- for s in named_spawners -%}
+          {%- set spawner = s.orm_spawner -%}
+          {%- set user_options = spawner.user_options -%}
+          {%- if user_options -%}
+            {%- set id = spawner.name -%}
+            {%- set name = user_options.get("name") -%}
+            {%- set service = user_options.get("service").split('/')[0] -%}
+            {%- set option = user_options.get("service").split('/')[1] -%}
+            {%- set system = user_options.get("system", None) -%}
+            {%- set account = user_options.get("account", None) -%}
+            {%- set project = user_options.get("project", None) -%}
+            {%- set partition = user_options.get("partition", None) -%}
+            {%- set reservation = user_options.get("reservation", None) -%}
+            {%- set nodes = user_options.get("nodes", None) -%}
+            {%- set runtime = user_options.get("runtime", None) -%}
+            {%- set gpus = user_options.get("gpus", None) -%}
+
+            {#- Exclude dashboards -#}
+            {%- if service != "Dashboard" %}
+              {{ table_macros.create_tr(
+                  id, name, s.active, s.pending, service, option, system, 
+                  account, project, partition, reservation, runtime, nodes, gpus) }}
+              {{ table_macros.create_collapsible_tr(id, name) }}
+              {%- set tbody_ns.table_has_rows = True -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+
+        {%- if not tbody_ns.table_has_rows %}
+        <tr>
+          <td></td>
+          <td colspan="5%" class="fst-italic text-muted">No JupyterLabs configured yet.<td>
+        </tr>
+        {%- endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{%- endblock -%}
+
+
+{#- Certain JS functions depend on Jinja variables, so we define them here instead of in an external file -#}
+{%- block script -%}
+<script src='{{static_url("js/home/handleServers.js", include_version=False) }}' type="text/javascript" charset="utf-8"></script>
+<script src='{{static_url("js/home/updateConfigElements.js", include_version=False) }}' type="text/javascript" charset="utf-8"></script>
+<script src='{{static_url("js/home/updateConfig.js", include_version=False) }}' type="text/javascript" charset="utf-8"></script>
+<script src='{{static_url("js/home/updateSpawnElements.js", include_version=False) }}' type="text/javascript" charset="utf-8"></script>
+<script src='{{static_url("js/home/updateTableElements.js", include_version=False) }}' type="text/javascript" charset="utf-8"></script>
+
+<script>
+{#- Make user_options and spawn events globally available in JS #}
+var user_options = {};
+var spawn_events = {};
+{%- for s in named_spawners -%}
+{%- set spawner = s.orm_spawner -%}
+{%- set user_options = spawner.user_options -%}
+  {%- if user_options and user_options.get("service").startswith("JupyterLab") %}
+    user_options["{{spawner.name}}"] = {{ user_options | tojson }}
+  {%- endif -%}
+
+  {%- if spawner.state and spawner.state.get("events") %}
+    spawn_events["{{spawner.name}}"] = {{ spawner.state.get("events") | tojson }};
+  {%- else -%}
+    {#- We still want to show a "latest" entry for the log dropdown,
+        so we manually create an entry for spawners without events #}
+    spawn_events["{{spawner.name}}"] = {"latest": []};
+  {%- endif -%}
+{%- endfor %}
+</script>
+
+<script>
+/* 
+ * Register any handlers needed for interaction with the configuration table.
+ */
+
+// Update styling for summary table row of JupyterLabs, which are not available
+$("tr[data-server-id]").not(".collapse-tr").each(function () {
+  var na = $(this).find(".na-status").text();
+  if ( na != "0" ) {
+    $(this).addClass("text-muted");
+    // Never disable the stop button
+    $(this).find(".btn").not(".btn[id*=log-btn], .stop").attr("disabled", true);
+  }
+})
+
+// Toggle the collapsible table row on table row click
+$("tr[data-server-id]").not(".collapse-tr").click(toggleCollapsibleRow);
+// but not when the action td button are clicked
+$(".actions-td button").click(function (event) {
+  event.preventDefault();
+  event.stopPropagation();
+})
+
+// Toggle log tabs on log button or info text click
+$(".progress-log-btn, .progress-info-text").click(openLogTab);
+
+// Enable save/revert buttons if changes to old config have been made
+// For input[type=checkbox], checkboxes get created dynamically
+// so the change handlers are set in the `createCheckbox` function
+$("select, input").not($("select[id*=log]")).not("[type=checkbox]").change(function () {
+  var id = get_id($(this));
+  var option = $(this).attr("id").split('-')[1];
+  var changed = checkUserOptionsChange(id, option, $(this).val());
+  if (changed) {
+    $(`#${id}-save-btn`).removeAttr("disabled");
+    $(`#${id}-reset-btn`).removeAttr("disabled");
+  }
+});
+
+// When focusing a select or input element, we want to 
+// remove any warning badges or borders.
+$("div[id*=-configuration] select, div[id*=-configuration] input").focus(function() {
+  toggleWarning($(this), show = false);
+}) 
+
+// Check if warning icons should be removed on tab click
+$("a[id$=tab").click(checkTabWarning);
+</script>
+
+
+<script>
+/* 
+ * Setup JupyterLab configurations and their change handlers. 
+ */
+
+/* Existing JupyterLabs */ 
+// Set values for existing labs
+setInitialValues(user_options);
+// Disable edit buttons again since any changes were automatic
+$(".save").attr("disabled", true);
+$(".reset").attr("disabled", true);
+
+// Update progress styling if previous spawn failed/was canceled
+{%- for s in named_spawners -%}
+  {%- if s._failed or s._cancel_event_yielded and not s.active %}
+  var id = "{{s.name | safe}}";
+  var progressBar = $(`#${id}-progress-bar`);
+  var progressInfo = $(`#${id}-progress-info-text`);
+  updateProgress(progressBar, progressInfo, 100, "last spawn failed", "bg-danger", showProgess=false)
+  {%- endif -%}
+{%- endfor %}
+
+// Register user input change handlers. E.g. selecting a version might change
+// available systems, changing available accounts, etc.
+$("select[id*=version]").change(versionChanged);
+$("select[id*=system]").change(systemChanged);
+$("select[id*=account]").change(accountChanged);
+$("select[id*=project]").change(projectChanged);
+$("select[id*=partition]").change(partitionChanged);
+
+/* New JupyterLabs. Call after registering change handlers since this depends on them. */
+setNewJupyterLabValues("{{new}}");
+
+// Reset any values when the new JupyterLab popup gets closed
+$("#{{new}}-dialog").on('hidden.bs.modal', function (event) {
+  setNewJupyterLabValues("{{new}}");
+})
+
+{#-
+Functions updating user input elements when JupyterLab configuration options change.
+Since possible configuration values depend on options which are defined in Jinja variables,
+they are defined in the template and not an external JS file.
+
+First, get possible options for the selected version. Then, get allowed values for the user.
+Only show those options which are allowed for both the currently selected option and the user.
+-#}
+{%- set dropdown_lists = spawner_options_form.get('dropdown_lists', {}) -%}
+{%- set dropdown_options = dropdown_lists.get('options', {}) -%}
+{%- set resources = spawner_options_form.get('resources', {}) %}
+/**
+* Updates options and sets value for the JupyterLab service select.
+* @param  {String} id JupyterLab UUID
+* @param  {String} value service value which should be selected 
+*/
+function updateService(id, value) {
+  var select = $(`select#${id}-version-select`);
+  var current_val = select.val();
+  resetSelect(select);
+  {%- for service in dropdown_options.keys() | unique -%}
+    {%- set service_name = custom_config.get("services").get("JupyterLab").get("options").get(service).get("name")%}
+    select.append('<option value="{{service}}">{{ service_name }}</option>');
+  {%- endfor %}
+  updateSelect(select, value, current_val);
+}
+
+/**
+* Updates options and sets value for the JupyterLab system select.
+* Available systems depend on the service selected.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} value system value which should be selected
+*/
+function updateSystems(id, service, value) {
+  var select = $(`select#${id}-system-select`);
+  var current_val = select.val();
+  resetSelect(select);
+  {%- for service, systems_allowed in dropdown_options.items() %}
+    if (service == {{ service | tojson }}) {
+      {%- for system in dropdown_lists.get("systems", []) %}
+        {%- if system in systems_allowed.keys() %}
+          select.append('<option value="{{system}}">{{ system }}</option>');
+        {%- endif %}
+      {%- endfor %}
+    }
+  {%- endfor %}
+  updateSelect(select, value, current_val);
+}
+
+/**
+* Updates options and sets value for the JupyterLab account select.
+* Available accounts depend on the service and system selected.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} system system selected
+* @param  {String} account be selected
+*/
+function updateAccounts(id, service, system, value) {
+  var select = $(`select#${id}-account-select`);
+  var current_val = select.val();
+  resetSelect(select);
+  {%- for service, systems_allowed in dropdown_options.items() %}
+    {%- for system, accounts_allowed in systems_allowed.items() %}
+      {%- set user_accounts = dropdown_lists.get('accounts', {}) -%}
+      {%- if user_accounts.get(system, []) | length > 0 %} 
+
+      if (service == {{ service | tojson }} && system == {{ system | tojson }}) {
+        {%- for account in user_accounts.get(system, []) | unique | sort -%}
+          {%- if account in accounts_allowed.keys() %}
+            select.append('<option value="{{account}}">{{ account }}</option>');
+          {%- endif -%}
+        {%- endfor %}
+      }
+
+      {%- endif -%}
+    {%- endfor -%}  
+  {%- endfor %}
+  updateSelect(select, value, current_val);
+}
+
+/**
+* Updates options and sets value for the JupyterLab project select.
+* Available projects depends on the service, system and account selected.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} system system selected
+* @param  {String} account acccount selected
+* @param  {String} value project value which should be selected
+*/
+function updateProjects(id, service, system, account, value) {
+  var select = $(`select#${id}-project-select`);
+  var current_val = select.val();
+  resetSelect(select);
+  {%- for service, systems_allowed in dropdown_options.items() -%}
+    {%- for system, accounts_allowed in systems_allowed.items() -%}
+      {%- for account, projects_allowed in accounts_allowed.items() -%}
+        {%- set user_accounts = dropdown_lists.get('projects', {}).get(system, {}).get(account, []) -%}
+        {%- if user_accounts | length > 0 %} 
+
+        if (service == {{ service | tojson }} && system == {{ system | tojson }} && account == {{ account | tojson }}) {
+          {%- for project in user_accounts | unique | sort -%}
+            {%- if project in projects_allowed.keys() %}
+            select.append('<option value="{{project}}">{{ project }}</option>');
+            {%- endif -%}
+          {%- endfor %}
+        }
+
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endfor -%}
+  {%- endfor %}
+  updateSelect(select, value, current_val);
+}
+
+/**
+* Updates options and sets value for the JupyterLab partition select.
+* Available partitions depend on the service, system, account and project selected.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} system system selected
+* @param  {String} account acccount selected
+* @param  {String} project project selected
+* @param  {String} value partition value which should be selected
+*/
+function updatePartitions(id, service, system, account, project, value=null) {
+  var select = $(`select#${id}-partition-select`);
+  var current_val = select.val();
+  resetSelect(select);
+  // Distinguish between login and compute nodes
+  var login_nodes = [];
+  var compute_nodes = [];
+
+  {%- for service, systems_allowed in dropdown_options.items() -%}
+    {%- for system, accounts_allowed in systems_allowed.items() -%}
+      {%- for account, projects_allowed in accounts_allowed.items() -%}
+        {%- for project, partitions_allowed in projects_allowed.items() -%}
+          {%- set user_projects = dropdown_lists.get('partitions', {}).get(system, {}).get(account, {}).get(project, []) -%}  
+          {%- if user_projects | length > 0 %}
+
+          var interactive_partitions = {{ custom_config.get("systems").get(system).get("interactive_partitions", []) | tojson }};
+          if (service == {{ service | tojson }} && system == {{ system | tojson }} && account == {{ account | tojson }} && project == {{ project | tojson }}) {
+            {%- for partition in user_projects | unique %}
+              {%- if partition in partitions_allowed.keys() %}
+              // Sort nodes into login and compute first, append options to select afterwards
+              if ( interactive_partitions.includes("{{partition}}") ) {
+                login_nodes.push("{{partition}}");
+              } else {
+                compute_nodes.push("{{partition}}");
+              }
+              {%- endif -%}
+            {%- endfor %}
+          }
+
+          {%- endif %}
+        {%- endfor -%}
+      {%- endfor -%}
+    {%- endfor -%}
+  {%- endfor %}
+
+  // Append options to select in groups
+  if (login_nodes.length > 0) {
+    select.append('<optgroup label="Login Nodes">');
+    login_nodes.forEach((x) => select.append(`<option value="${x}">${x}</option>`))
+    select.append('</optgroup>');
+  }
+  if (compute_nodes.length > 0) {
+    select.append('<optgroup label="Compute Nodes">');
+    compute_nodes.forEach((x) => select.append(`<option value="${x}">${x}</option>`))
+    select.append('</optgroup>');
+  }
+  updateSelect(select, value, current_val);
+}
+
+/**
+* Sets values for the JupyterLab resource inputs (nodes, gpu and runtime).
+* Available resources depend on the service, system, account, project and partition selected.
+* If no resources are available, the tab for the pane 
+* containing the input elements should be disabled.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} system system selected
+* @param  {String} account acccount selected
+* @param  {String} project project selected
+* @param  {String} partition partition selected
+* @param  {Number} nodes value which should be set for nodes
+* @param  {Number} gpus value which should be set for gpus
+* @param  {Number} runtime which should be set for runtime
+*/
+function updateResources(id, service, system, account, project, partition, nodes, gpus, runtime) {
+  var nodes_input = $(`input#${id}-nodes-input`);
+  var gpus_input = $(`input#${id}-gpus-input`);
+  var runtime_input = $(`input#${id}-runtime-input`);
+  var current_node_val = nodes_input.val();
+  var current_gpus_val = gpus_input.val();
+  var current_runtime_val = runtime_input.val();
+  [nodes_input, gpus_input, runtime_input].forEach( input => resetInput(input));
+
+  var shouldDisable = true;
+  {%- for service, systems_allowed in dropdown_options.items() -%}
+    {%- for system, accounts_allowed in systems_allowed.items() -%}
+      {%- for service, system_resources in spawner_options_form.get('resources', {}).items() -%}
+        {#- If are no resources for the system, we hide all inputs -#}
+        {%- if system_resources.get(system, {}) == {} %}
+        if (service == {{ service | tojson }} && system == {{ system | tojson }}) {
+            ["nodes", "gpus", "runtime"].forEach(function(resource) {
+              $(`#${id}-${resource}-input-div`).hide();
+            });
+          }
+        {%- endif %}
+      {%- endfor %}
+
+      {%- for account, projects_allowed in accounts_allowed.items() -%}
+        {%- for project, partitions_allowed in projects_allowed.items() -%}
+          {%- for partition in partitions_allowed %}
+            if (service == {{ service | tojson }} && system == {{ system | tojson }} && account == {{ account | tojson }} 
+                  && project == {{ project | tojson }} && partition == {{ partition | tojson }}) {
+              {%- set partition_resources = spawner_options_form.get("resources", {}).get(service, {}).get(system, {}).get(partition, {}) %}
+
+              {%- if "nodes" in partition_resources -%}
+                {%- set nodes_options = partition_resources.get("nodes", {})%}
+                var min = {{ nodes_options.get("minmax", [0, 1])[0] }};
+                var max = {{ nodes_options.get("minmax", [0, 1])[1] }};
+                // Add min max to label
+                $(`#${id}-nodes-label`).text("Nodes [" + min + "," + max + "]");
+                // Check if the default value from the config should be set
+                if (!nodes) nodes = {{ nodes_options.get("default", 0) }};
+                // Enable tab here already since updateInput depends on the tab
+                shouldDisable = false;
+                toggleTab(id, "resources", false);
+                updateInput(nodes_input, nodes, current_node_val, min, max);
+                // Since node resources exists, we show the div
+                $(`#${id}-nodes-input-div`).show();
+              {%- else %}
+                var hidden = $(`#${id}-gpus-input-div`).css("display") == "none" ? true : false;
+                $(`#${id}-nodes-input-div`).hide();
+                // If the div was not already hidden, trigger tab warning 
+                // to show that the resource option has been removed
+                if (!hidden) toggleTabWarning($(`#${id}-resources-tab`), true);
+              {%- endif %}
+
+              {%- if "gpus" in partition_resources -%}
+                {%- set gpu_options = partition_resources.get("gpus", {})%}
+                var min = {{ gpu_options.get("minmax", [0, 1])[0] }};
+                var max = {{ gpu_options.get("minmax", [0, 1])[1] }};
+                // Add min max to label
+                $(`#${id}-gpus-label`).text("GPUs [" + min + "," + max + "]");
+                // Check if the default value from the config should be set
+                if (!gpus) gpus = {{ gpu_options.get("default", 0) }};
+                // Enable tab here already since updateInput depends on the tab
+                shouldDisable = false;
+                toggleTab(id, "resources", false);
+                updateInput(gpus_input, gpus, current_gpus_val, min, max);
+                // Since gpu resources exists, we show the div
+                $(`#${id}-gpus-input-div`).show();
+              {%- else %}
+                var hidden = $(`#${id}-gpus-input-div`).css("display") == "none" ? true : false;
+                $(`#${id}-gpus-input-div`).hide();
+                // If the div was not already hidden, trigger tab warning 
+                // to show that the resource option has been removed
+                if (!hidden) toggleTabWarning($(`#${id}-resources-tab`), true);
+              {%- endif %}
+
+              {%- if "runtime" in partition_resources -%}
+                {%- set runtime_options = partition_resources.get("runtime", {})%}
+                var min = {{ runtime_options.get("minmax", [0, 1])[0] }};
+                var max = {{ runtime_options.get("minmax", [0, 1])[1] }};
+                // Add min max to label
+                $(`#${id}-runtime-label`).text("Runtime (min) [" + min + "," + max + "]");
+                // Check if the default value from the config should be set
+                if (!runtime) runtime = {{ runtime_options.get("default", 0) }};
+                // Enable tab here already since updateInput depends on the tab
+                shouldDisable = false;
+                toggleTab(id, "resources", false);
+                updateInput(runtime_input, runtime, current_runtime_val, min, max);
+                // Since gpu resources exists, we show the div
+                $(`#${id}-runtime-input-div`).show();
+              {%- else %}
+                var hidden = $(`#${id}-gpus-input-div`).css("display") == "none" ? true : false;
+                $(`#${id}-runtime-input-div`).hide();
+                // If the div was not already hidden, trigger tab warning 
+                // to show that the resource option has been removed
+                if (!hidden) toggleTabWarning($(`#${id}-resources-tab`), true);
+              {%- endif %}
+            }
+          {%- endfor %}
+
+        {%- endfor -%}
+      {%- endfor -%}
+    {%- endfor -%}
+  {%- endfor %}
+
+  // Disable tab if no resources are available.
+  if (shouldDisable) toggleTab(id, "resources", true);
+}
+
+/**
+* Updates options and sets value for the JupyterLab reservation.
+* Available reservations depend on the service, system, account, project and partition selected.
+* If no reservationss are available, the tab for the pane 
+* containing the input element should be disabled.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} system system selected
+* @param  {String} account acccount selected
+* @param  {String} project project selected
+* @param  {String} partition partition selected
+* @param  {String} value reservation which should be selected
+*/
+function updateReservation(id, service, system, account, project, partition, value) {
+  var select = $(`select#${id}-reservation-select`);
+  var current_val = select.val();
+  resetSelect(select);
+  select.removeAttr("required");
+  
+  var shouldDisable = true;
+  {%- for service, systems_allowed in dropdown_options.items() -%}
+    {%- for system, accounts_allowed in systems_allowed.items() -%}
+      {%- for account, projects_allowed in accounts_allowed.items() -%}
+        {%- for project, partitions_allowed in projects_allowed.items() -%}
+          {%- for partition, reservations_allowed in partitions_allowed.items() %}
+            if (service == {{ service | tojson }} && system == {{ system | tojson }} && account == {{ account | tojson }} 
+                  && project == {{ project | tojson }} && partition == {{ partition | tojson }}) {
+              {%- if reservations_allowed | length > 0 and reservations_allowed != ["None"] -%}
+
+                {#- cannot use unique for lists containing dictionary so use a variable as a work around -#}
+                {%- set reservation_list = [] -%}
+                {%- for reservation in dropdown_lists.get('reservations', {})
+                      .get(system, {}).get(account, {}).get(project, {}).get(partition, []) -%}
+                  {%- if reservation in reservations_allowed and reservation not in reservation_list %}
+                    {#- Add to reservation_list to avoid duplicate entries -#}
+                    {%- do reservation_list.append(reservation) -%}
+
+                    {#- It should be possible to select no registration -#}
+                    {%- if reservation == "None" %}
+                      var reservation = "None";
+                      select.append('<option value="{{reservation}}">{{ reservation }}</option>');
+                    {#- Otherwise, append the reservation to the select -#}
+                    {%- else %}
+                      {#- Check reservation info dict for more information -#}
+                      {%- for reservation_line in spawner_options_form.get('reservations', {}).get(system, []) -%}
+                        {%- if reservation == reservation_line %}
+                          var reservation = "{{ reservation.get('ReservationName') | safe }}";
+                          {%- if reservation_line.get('State', "INACTIVE") == "INACTIVE" %}
+                            select.append(`<option value="${reservation}" disabled style="color: #6c757d;">${reservation} [INACTIVE]</option>`);
+                          {%- else %}
+                            select.append(`<option value="${reservation}">${reservation}</option>`);
+                          {%- endif -%}
+                        {%- endif -%}
+                      {%- endfor -%}
+                    {%- endif -%}
+
+                  {%- endif -%}
+                {%- endfor -%}    
+
+                select.attr("required", true);
+                // Since reservations exists, we show the div and enable the tab.
+                $(`#${id}-reservation-select-div`).show();
+                {# toggleTab(id, "reservation", disable=false); #}
+                shouldDisable = true;
+              {%- endif %}
+            }  else {
+              $(`#${id}-reservation-select-div`).hide();
+            }
+          {%- endfor -%}
+        {%- endfor -%}
+      {%- endfor -%}
+    {%- endfor -%}
+  {%- endfor %}
+
+  toggleTab(id, "reservation", shouldDisable);
+  updateSelect(select, value, current_val);
+}
+
+/**
+* Updates options and sets values for the JupyterLab modules (kernels and extensions).
+* Available resources depend on the the service, system, account, project and partition selected.
+* If no modules are available, the tab for the pane 
+* containing the input elements should be hidden instead of only disabled.
+* @param  {String} id JupyterLab UUID
+* @param  {String} service service selected
+* @param  {String} system system selected
+* @param  {String} account acccount selected
+* @param  {String} project project selected
+* @param  {String} partition partition selected
+* @param  {Array} values values which should be checked
+*/
+function updateModules(id, service, system, account, project, partition, values) {
+  // Save current values
+  var current_values = {};
+  $(`input[type=checkbox][id*=${id}]`).each(function () {
+    var option = $(this).val();
+    current_values[option] = this.checked;
+  })
+  // Delete all content of tab (form)
+  var form = $(`#${id}-modules-form`);
+
+  // Get checkbox options per service from custom config.
+  {%- for service, options in custom_config.get("services", {}).get("JupyterLab", {}).get("options", {}).items() %}
+    if (service == {{ service | tojson }}) {
+      {%- set extensions = {} -%}
+      {%- set kernels = {} -%}
+      {%- set proxies = {} -%}
+      {#- Also separately save default values since we already loop anyway -#}
+      {%- set default_modules = [] -%}
+
+      {%- set extension_set = options.get("extension_set", "default") -%}
+      {%- for module, options in additional_spawn_options.get("extensions", {}).items() -%}
+        {%- if extension_set in options.get("sets") -%}
+          {%- do extensions.update({module: options}) -%}
+          {%- if options["default"] %}
+            {%- do default_modules.append(module) -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+      
+      {%- set kernel_set = options.get("kernel_set", "default") -%}
+      {%- for module, options in additional_spawn_options.get("kernels", {}).items() -%}
+        {%- if kernel_set in options.get("sets") -%}
+          {%- do kernels.update({module: options}) -%}
+          {%- if options["default"] %}
+            {%- do default_modules.append(module) -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+
+      {%- set proxy_set = options.get("proxy_set", "default") -%}
+      {%- for module, options in additional_spawn_options.get("proxies", {}).items() -%}
+        {%- if proxy_set in options.get("sets") -%}
+          {%- do proxies.update({module: options}) -%}
+          {%- if options["default"] %}
+            {%- do default_modules.append(module) -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor %}
+
+      var extensions = {{ extensions | tojson }};
+      var kernels = {{ kernels | tojson }};
+      var proxies = {{ proxies | tojson }};
+      var default_modules = {{ default_modules | safe }};
+
+      {#- For now, just check if GPU resources are available for nvdashboards.
+        This should probably be solved via the config file as well 
+        instead of just checking for the existence of gpu resources.
+      -#}
+      {%- set gpu_modules = ["nvdashboard"] %}
+      var gpu_modules = {{ gpu_modules | safe }};
+      {%- for service, systems_allowed in dropdown_options.items() -%}
+        {%- for system, accounts_allowed in systems_allowed.items() -%}
+          {%- for service, system_resources in spawner_options_form.get('resources', {}).items() -%}
+            {%- for account, projects_allowed in accounts_allowed.items() -%}
+              {%- for project, partitions_allowed in projects_allowed.items() -%}
+                {%- for partition in partitions_allowed %}
+                  if (service == {{ service | tojson }} && system == {{ system | tojson }} && account == {{ account | tojson }} 
+                      && project == {{ project | tojson }} && partition == {{ partition | tojson }}) {
+                    {%- set partition_resources = spawner_options_form.get("resources", {}).get(service, {}).get(system, {}).get(partition, {}) -%}
+                    {%- if "gpus" in partition_resources -%}
+                      {%- for module in gpu_modules -%}
+                        {%- if module in extensions %}
+                          extensions["{{module}}"]["default"] = true;
+                          if (!default_modules.includes("{{module}}")) {
+                            default_modules.push("{{module}}");
+                            // Hacky solution to show warning icon
+                            if (current_values["{{module}}"] == false) {
+                              current_values["{{module}}"] = null;
+                            }
+                          }
+                        {%- endif -%}
+                      {%- endfor -%}
+                    {%- else -%}
+                      {%- for module in gpu_modules %}
+                        // Hacky solution to show warning icon
+                        if (current_values["{{module}}"] == true) {
+                          current_values["{{module}}"] = null;
+                        }
+                      {%- endfor -%}
+                    {%- endif %}
+                  }
+                {%- endfor -%}
+              {%- endfor -%}
+            {%- endfor -%}
+          {%- endfor -%}
+        {%- endfor -%}
+      {%- endfor %}
+
+      // If no values were passed, we use default values.
+      // This part should really be dependent on the service, system and partition.
+      if (!values ) {
+        values = default_modules;
+      }
+    }
+  {%- endfor %}
+
+  // If no modules exist for the version or system, partition, hide the tab.
+  if ( $.isEmptyObject(extensions) && $.isEmptyObject(kernels) && $.isEmptyObject(proxies) ) {
+    toggleTab(id, "modules", disable = true, hide = true);
+    // Don't need to do anything else.
+    return;
+  }
+  else toggleTab(id, "modules", disable = false, hide = false);
+
+  // Check if a extensions div needs to be created or deleted
+  createCheckboxes(id, "Extensions", extensions, form);
+  createCheckboxes(id, "Kernels", kernels, form);
+  createCheckboxes(id, "Proxies", proxies, form);
+
+  // Still need to set values
+  $(`input[type=checkbox][id*=${id}]`).each(function () {
+    var option = $(this).val();
+    var shouldCheck = values.includes(option);
+    updateCheckbox($(this), shouldCheck, current_values[option]);
+  })
+}
+</script>
+
+<script>
+/*
+ * Connect to SSE to get notified of new servers 
+ */
+{#- Manually set cancel_progress_activation 
+    since we never added it to the template -#}
+{%- set cancel_progress_activation = 30 %}
+var evtSources = {}
+
+$(document).ready(function () {
+  updateSpawners();
+});
+
+// Add eventSrcs for start and stop events
+var notification_base_url = `${jhdata.base_url}api/users/${jhdata.user}/notifications/spawners/`;
+
+var startEvtSource = new EventSource(notification_base_url + "spawn");
+startEvtSource.onmessage = newJupyterLabStarted;
+
+var stopEvtSource = new EventSource(notification_base_url + "stop");
+stopEvtSource.onmessage = JupyterLabStopped;
+
+/**
+* Updates progress and buttons in a JupyterLab's table row 
+* dependent on its status. Attaches event listeners for labs
+* which are currently spawning.
+*/
+function updateSpawners() {
+  {%- for s in named_spawners %}
+    var id = "{{s.name}}";
+    // Get the current progress number
+    var latest_events = spawn_events["{{s.name}}"]["latest"];
+    if (latest_events.length > 0) {
+      var last_event = latest_events.slice(-1)[0];
+      var current_progress = last_event.progress;
+    }
+    else var current_progress = 0;
+    
+    // Append log messages
+    for (const event in latest_events) {
+      var html_message = latest_events[event]["html_message"];
+      appendToLog(html_message, $(`#${id}-progress-log`));
+    }
+
+    // Add options to log select and select the latest log by default
+    var log_select = $(`#${id}-log-select`);
+    for (const log in spawn_events["{{s.name}}"]) {
+      if (log == "latest") log_select.prepend(`<option value="${log}">${log}</option>`);
+      else log_select.append(`<option value="${log}">${log}</option>`);
+    }
+    log_select.val("latest");
+
+    // Set some css if the spawner if currenty spawning and
+    // add an eventSource for it.
+    var progressBar = $(`#${id}-progress-bar`);
+    var progressInfo = $(`#${id}-progress-info-text`);
+    {%- if not s.ready and s.active %}
+      updateProgress(progressBar, progressInfo, current_progress, "spawning...");
+      
+      var tr = getRow(progressBar);
+      tr.find(".open").addClass("disabled");
+      if (current_progress < {{cancel_progress_activation}}) {
+        tr.find(".stop, .cancel").addClass("disabled");
+      }
+      // Disable the delete button during the spawn process
+      var collapse = $(`.collapse-tr[data-server-id=${id}]`);
+      collapse.find(".delete").addClass("disabled");
+
+      // And add an event listener
+      var progress_url = `${jhdata.base_url}api/users/${jhdata.user}/servers/${id}/progress`;
+      evtSources[id] = new EventSource(progress_url);
+    // Lab is active, but has finished spawning.
+    {%- elif s.active %}
+      updateProgress(progressBar, progressInfo, current_progress, "running", "bg-success", showProgess=false);
+    {%- endif %}
+  {%- endfor %}
+
+  // Handle new messages for evtSources
+  for (const id in evtSources) {
+    evtSources[id].onmessage = function (e) {
+      onEvtMessage(e, evtSources[id], id);
+    }
+  }
+}
+
+/**
+* Handle EventSource messages for spawning JupyterLabs.
+* @param  {Object} event event received by evtSource
+* @param  {Object} evtSource evtSource for a spawner
+* @param  {String} id JupyterLab UUID
+*/
+function onEvtMessage(event, evtSource, id) {
+  var tr = $(`tr[data-server-id=${id}]`).not(".collapse-tr");
+  var delete_btn = $(`.collapse-tr[data-server-id=${id}]`).find(".delete");
+
+  var evt = JSON.parse(event.data);
+  // console.log(evt);
+  spawn_events[id]["latest"].push(evt);
+
+  // Update progress bar and buttons depending on progress
+  var progressBar = $(`#${id}-progress-bar`);
+  var progressInfo = $(`#${id}-progress-info-text`);
+  if (evt.progress !== undefined && evt.progress != 0) {
+    updateProgress(progressBar, progressInfo, evt.progress, "spawning...");
+    // Cannot delete JupyterLab during spawn process
+    delete_btn.addClass("disabled")
+    // Enable cancel button for JupyterLab
+    if (evt.progress >= {{cancel_progress_activation}}) {
+      tr.find(".cancel").removeClass("disabled");
+    }
+  }
+
+  // Append html messages to progress log
+  if (evt.html_message !== undefined) {
+    var html_message = evt.html_message
+  } else if (evt.message !== undefined) {
+    var html_message = evt.message;
+  }
+  if (html_message) {
+    html_message = html_message.replace(/&nbsp;/g, ' ');
+    // Only append if latest log is selected
+    if ($(`#${id}-log-select`).val() == "latest")
+      appendToLog(html_message, $(`#${id}-progress-log`));
+  }
+
+  // Spawn terminated successfully, we can stop listening and
+  // allow the user to open or stop the JuptyerLab.
+  if (evt.ready) {
+    evtSource.close();
+    delete evtSources[id];
+    updateProgress(progressBar, progressInfo, 100, "running", "bg-success", showProgess=false);
+    tr.find(".cancel").addClass("d-none disabled");
+    tr.find(".stop").removeClass("d-none disabled");
+    tr.find(".open").removeClass("disabled");
+    delete_btn.removeClass("disabled");
+  }
+  // Spawn failed, we can stop listening and allow the user 
+  // to try again if the system is still available.
+  if (evt.failed) {
+    evtSource.close();
+    delete evtSources[id];
+    updateProgress(progressBar, progressInfo, 100, "last spawn failed", "bg-danger", showProgess=false);
+    // Change buttons to start or N/A
+    var na = tr.find(".na-status").text();
+    if (na != "0") {
+      tr.find(".na").removeClass("d-none")
+      tr.find(".start").addClass("d-none");
+    } 
+    else {
+      tr.find(".na").addClass("d-none")
+      tr.find(".start").removeClass("d-none");
+    }
+    tr.find(".open, .cancel").addClass("d-none disabled");
+    delete_btn.removeClass("disabled");
+  }
+}
+</script>
+{%- endblock %}

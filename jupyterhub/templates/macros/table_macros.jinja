@@ -1,0 +1,284 @@
+{# This file contains macros to create the top level elements of the JupyterLab configurations table. #}
+
+
+{###- 
+Creates buttons to control a JupyterLab.
+Different buttons will be shown depending on the status of the Jupyter server.
+
+To check if a JupyterLab is allowed to be started, we need to check the allowed_lists for the VO,
+so we need to pass all the Lab configuration options to this function.
+-###}
+{%- macro table_actions(id, active, pending, service, option1, system, account, project, partition, reservation, runtime, nodes, gpus) -%}
+
+{#- Set config related convenience variables -#}
+{%- set active_vo_config = custom_config.get("vos").get(auth_state.get("vo_active", ""), {}) -%} 
+{%- set vo_services = active_vo_config.get("Services", {}) -%}
+{%- set vo_allowed_lists = vo_services.get(service, {}).get(option1, {}).get("replace_allowed_lists", {}) -%}
+{%- set vo_resources = vo_services.get(service, {}).get(option1, {}).get("replace_resources", {}) -%}
+{%- set service_allowed_lists = custom_config.get("services").get(service, {}).get("options", {}).get(option1, {}).get("allowed_lists", {}) -%}
+
+{#- Logic to determine if a lab can be opened/started -#}
+{#- Check vo configurations if a lab is allowed to be started -#}
+{#- System is not in replace_allowed_lists of the VO config -#}
+{%- if "systems" in vo_allowed_lists.keys() and system not in vo_allowed_lists.get("systems", []) -%} 
+  {%- set na = 1 -%}
+{#- System not in allowed list of the services config and not overwritten in the VO config -#}
+{%- elif system not in service_allowed_lists.get("systems", []) and system not in vo_allowed_lists.get("systems", []) -%}
+   {%- set na = 1 -%}
+
+{#- Service or service option not allowed for active VO -#}
+{%- elif service not in vo_services.keys() or option1 not in vo_services.get(service, {}).keys() -%}
+  {%- set na = 1 -%}
+
+{#- Account is not in replace_allowed_lists of the VO config -#}
+{%- elif "accounts" in vo_allowed_lists.keys() and account not in vo_allowed_lists.get("accounts", []) -%} 
+  {%- set na = 1 -%}
+
+{#- Project is not in replace_allowed_lists of the VO config -#}
+{%- elif "projects" in vo_allowed_lists.keys() and project not in vo_allowed_lists.get("projects", []) -%}
+  {%- set na = 1 -%}
+{#- Project does not exist anymore for the system -#}
+{#- {%- elif project != None 
+   and project not in dropdown_lists.get("options", {}).get(option1, {}).get(system, {}).get(account, {}).keys() -%} {%- set na = 1 -%} -#}
+
+{#- Partition is not in replace_allowed_lists of the VO config -#}
+{%- elif "partitions" in vo_allowed_lists.keys() and partition not in vo_allowed_lists.get("partitions", []) -%}
+  {%- set na = 1 -%}
+
+{#- Reservation is not in replace_allowed_lists of the VO config -#}
+{%- elif "reservations" in vo_allowed_lists.keys() and reservation not in vo_allowed_lists.get("reservations", []) -%}
+  {%- set na = 1 -%}
+
+{#- Runtime is smaller than min allowed runtime or greater than max allowed runtime as per the VO config -#}
+{%- elif "Runtime" in vo_resources.get(system, {}).get(partition, {}).keys() 
+    and (
+      (runtime|int / 60) < vo_resources.get(system, {}).get(partition, {}).get("Runtime", [[0,1], 0])[0][0] 
+      or (runtime|int / 60) > vo_resources.get(system, {}).get(partition, {}).get("Runtime", [[0,1], 0])[0][1] 
+    ) -%}
+  {%- set na = 1 -%}
+{#- Number of nodes is smaller than min allowed number or greater than max allowed number as per the VO config -#}
+{%- elif "Nodes" in vo_resources.get(system, {}).get(partition, {}).keys() 
+    and ( 
+      (nodes|int) < vo_resources.get(system, {}).get(partition, {}).get("Nodes", [[0,1], 0])[0][0]
+      or (nodes|int) > vo_resources.get(system, {}).get(partition, {}).get("Nodes", [[0,1], 0])[0][1] 
+    ) -%}
+  {%- set na = 1 -%}
+{#- Number of GPUS is smaller than min allowed number or greater than max allowed number as per the VO config -#}
+{%- elif "GPUS" in vo_resources.get(system, {}).get(partition, {}).keys() 
+    and (
+      (gpus|int) < vo_resources.get(system, {}).get(partition, {}).get("GPUS", [[0,1], 0])[0][0]
+      or (gpus|int) > vo_resources.get(system, {}).get(partition, {}).get("GPUS", [[0,1], 0])[0][1] 
+    ) -%}
+  {%- set na = 1 -%}
+
+{#- System is in maintenance.
+    Set a different na value here to differentiate from Labs
+    which are not allowed to start due to VO configurations -#}
+{%- elif system in maintenance_list -%} 
+  {%- set na = 2 -%}
+
+{#- In all other cases, the JupyterLab is allowed to be started -#}
+{%- else -%}
+  {%- set na = 0 -%}
+{%- endif -%}
+
+{#- Finally create the actual action buttons -#}
+<div class="d-inline-flex justify-content-center">
+  {#- Save N/A status to page -#}
+  <span class="na-status d-none">{{na}}</span>
+
+  {#- Button margins -#}
+  {%- set margin = "me-1" -%} 
+
+  {#- N/A button #}
+  <button type="button" class="btn btn-secondary disabled {%- if na == 0 %} d-none {%- endif %} na {{margin}}">
+    {{ na_svg | safe }}
+    N/A
+  </button>
+
+  {#- Open button -#}
+  {%- if na == 0 %}
+  <button type="button" class="btn btn-success open {%- if not active %} d-none {%- endif %} {{margin}}" data-server-url='/user/{{user.name}}/{{id}}'>
+     {{ open_svg | safe }}
+    Open
+  </button>
+  {%- endif -%}
+
+  {#- Cancel button #}
+  <button type="button" class="btn btn-danger cancel {%- if not active %} d-none {%- endif -%} 
+    {%- if active and pending == None %} d-none {%- endif -%}">
+    {{ stop_svg | safe }}
+    Cancel
+  </button>
+
+  {#- Stop button #}
+  <button type="button" class="btn btn-danger stop {%- if not active %} d-none {%- endif -%}
+   {%- if active and pending != None %} d-none {%- endif -%}">
+    {{ stop_svg | safe }}
+    Stop
+  </button>
+
+  {#- Start button -#}
+  {%- if na == 0 %}
+  <button type="button" id="{{id}}-start-btn" class="btn btn-primary start {%- if active %} d-none {%- endif %} {{margin}}"
+    href="{{base_url}}spawn/{{user.name}}/{{id}}" target="_blank">
+    {{ start_svg | safe }}
+    Start
+  </button>
+  {%- endif %}
+</div>
+{%- endmacro -%}
+
+
+
+{###- 
+Creates a table row containing the summary of a JupyterLab configuration as well as the action buttons.
+
+Clicking this row will open a collapsible table row with more detailed information.
+We create the collapsible table row with a different macro function.
+
+Since this calls `table_actions`, we need to pass all JupyterLab configuration options.
+-###}
+{%- macro create_tr(id, display_name, active, pending, service, option1, system, account, project, partition, reservation, runtime, nodes, gpus) -%}
+<tr data-server-id="{{id}}">
+  {#- Icon and target for the collapsible table row #}
+  <td class="details" data-bs-target="#{{id}}-collapse">
+    <div class="d-flex mx-auto accordion-icon collapsed"></div>
+  </td>
+
+  {#- Summary of JupyterLab configuration #}
+  <th scope="row">{{ display_name }}</th>  {# Name #}
+  <td class="system-td">{{ system }}</td>  {# System #}
+  <td class="partition-td">  {# Partition #}
+    {% if partition == None -%} <span class="text-muted">N/A</span> {%- else -%} {{ partition }} {%- endif %}
+  </td>
+  <td class="project-td">  {# Project #}
+    {% if project == None -%} <span class="text-muted">N/A</span> {%- else -%} {{ project }} {%- endif %}
+  </td>
+
+  <td class="status-td">  {# Status #}
+    <div class="d-inline-flex flex-wrap align-items-center g-0">
+      {#- Progress bar #}
+      <div class="col-auto my-2">
+        {%- set margin = "me-3" -%}
+        <div class="progress flex-grow-1 {{margin}}" style="height: 20px; min-width: 100px;">
+          <div id="{{id}}-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+          aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <div id="{{id}}-progress-info-text" class="progress-info-text text-muted text-center {{margin}}" style="font-size: smaller;"></div>
+      </div>
+      {#- Log button #}
+      <div class="col-auto">
+        <a class="progress-log-btn" role="button">
+	        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle-fill" viewBox="0 0 16 16">
+  	        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </td>
+
+  <td class="actions-td">  {# Actions #}
+    {{ table_actions(id, active, pending, service, option1, system, account, project, partition, reservation, runtime, nodes, gpus) | indent(4) }}
+  </td>
+</tr>
+{%- endmacro -%}
+
+
+{###- 
+Creates a collapsible table row for the detailed configuration of a JupyterLab.
+
+Creates a collapsible table row with empty user input elements.
+The content of user input elements need to change dynamically, so they get filled via JS instead.
+-###}
+{# This macros relies on macros from other files. #}
+{%- import template_path + "/macros/generic_ui_macros.jinja" as ui_macros -%}
+{%- import template_path + "/macros/jlab_config_macros.jinja" as config_macros with context -%}
+{%- macro create_collapsible_tr(id, display_name) -%}
+<tr data-server-id="{{id}}" class="collapse-tr" style="--bs-table-accent-bg: transparent;">
+  {#- Remove padding from table data cell to hide the row when collapsed -#}
+  <td colspan=12 class="p-0">
+    {#- Do not add y padding here as it messes up the transition -#}
+    <div class="collapse px-2" id="{{id}}-collapse">
+      <div class="row g-0 p-2">
+
+        {#- Vertical tabs #}
+        <div class="col-md-3 col-xl-2">
+          {{ ui_macros.create_vertical_tabs(id, { "Logs": {"key": "logs", "active": false} }) }}
+        </div>
+
+        {#- Vertical tab content #}
+        <div class="col-md-9 col-xl-10">
+          <div id="{{id}}-configuration" class="tab-content">
+            {{ config_macros.create_service_panel(id) }}
+            {{ config_macros.create_options_panel(id) }}
+            {{ config_macros.create_resources_panel(id) }}
+            {{ config_macros.create_reservation_panel(id) }}
+            {{ config_macros.create_modules_panel(id) }}
+            {{ config_macros.create_log_panel(id) }}
+          </div>
+        </div>
+
+        {#- Vertical line #}
+        <div class="col-md-3 col-xl-2" style="border-right: 1px solid #dee2e6"></div>
+
+        {#- Edit buttons #}
+        <div class="col-md-9 col-xl-10 mb-3 px-3">
+          <hr>  {# Horizontal line#}
+          <div class="d-flex align-items-center">
+            {%- call create_button("Save", "btn-success save me-2", id=id+"-save-btn") %}
+              {{ save_svg | safe }}
+            {%- endcall %}
+            {%- call create_button("Reset", "btn-danger reset me-2", id=id+"-reset-btn") %}
+              {{ reset_svg | safe }}
+            {%- endcall %}
+            <div class="alert fade pe-none mb-0 p-2" role="alert">
+              <span class="align-middle"></span>
+              <button type="button" class="btn-close align-middle" onClick="$(this).parent().removeClass('show'); $(this).parent().addClass('pe-none');"></button>
+            </div>
+            {%- call create_button("Delete", "btn-danger delete ms-auto", id=id+"-delete-btn", disabled=false) %}
+              {{ delete_svg | safe }}
+            {%- endcall %}
+          </div>
+        </div>
+
+      </div> {# End of row div #}
+    </div> {# End of collapse div #}
+  </td>
+</tr>
+{%- endmacro -%}
+
+
+{#- Convenience function used in  create_collapsible_tr only. -#}
+{%- macro create_button(text, classes="", id="", disabled=true) -%}
+<button type="button" {%- if id %} id="{{id}}" {%- endif %} class="btn {{classes}}" {%- if disabled %} disabled {%- endif %}>
+  {{ caller() }} {# SVG #}
+  <span class="align-middle">{{ text }}</span>
+</button>
+{%- endmacro -%}
+
+{#- Save svgs in variables to increase readability of macros -#}
+{%- set na_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-dash-circle-dotted" viewBox="0 0 16 16">
+  <path d="M8 0c-.176 0-.35.006-.523.017l.064.998a7.117 7.117 0 0 1 .918 0l.064-.998A8.113 8.113 0 0 0 8 0zM6.44.152c-.346.069-.684.16-1.012.27l.321.948c.287-.098.582-.177.884-.237L6.44.153zm4.132.271a7.946 7.946 0 0 0-1.011-.27l-.194.98c.302.06.597.14.884.237l.321-.947zm1.873.925a8 8 0 0 0-.906-.524l-.443.896c.275.136.54.29.793.459l.556-.831zM4.46.824c-.314.155-.616.33-.905.524l.556.83a7.07 7.07 0 0 1 .793-.458L4.46.824zM2.725 1.985c-.262.23-.51.478-.74.74l.752.66c.202-.23.418-.446.648-.648l-.66-.752zm11.29.74a8.058 8.058 0 0 0-.74-.74l-.66.752c.23.202.447.418.648.648l.752-.66zm1.161 1.735a7.98 7.98 0 0 0-.524-.905l-.83.556c.169.253.322.518.458.793l.896-.443zM1.348 3.555c-.194.289-.37.591-.524.906l.896.443c.136-.275.29-.54.459-.793l-.831-.556zM.423 5.428a7.945 7.945 0 0 0-.27 1.011l.98.194c.06-.302.14-.597.237-.884l-.947-.321zM15.848 6.44a7.943 7.943 0 0 0-.27-1.012l-.948.321c.098.287.177.582.237.884l.98-.194zM.017 7.477a8.113 8.113 0 0 0 0 1.046l.998-.064a7.117 7.117 0 0 1 0-.918l-.998-.064zM16 8a8.1 8.1 0 0 0-.017-.523l-.998.064a7.11 7.11 0 0 1 0 .918l.998.064A8.1 8.1 0 0 0 16 8zM.152 9.56c.069.346.16.684.27 1.012l.948-.321a6.944 6.944 0 0 1-.237-.884l-.98.194zm15.425 1.012c.112-.328.202-.666.27-1.011l-.98-.194c-.06.302-.14.597-.237.884l.947.321zM.824 11.54a8 8 0 0 0 .524.905l.83-.556a6.999 6.999 0 0 1-.458-.793l-.896.443zm13.828.905c.194-.289.37-.591.524-.906l-.896-.443c-.136.275-.29.54-.459.793l.831.556zm-12.667.83c.23.262.478.51.74.74l.66-.752a7.047 7.047 0 0 1-.648-.648l-.752.66zm11.29.74c.262-.23.51-.478.74-.74l-.752-.66c-.201.23-.418.447-.648.648l.66.752zm-1.735 1.161c.314-.155.616-.33.905-.524l-.556-.83a7.07 7.07 0 0 1-.793.458l.443.896zm-7.985-.524c.289.194.591.37.906.524l.443-.896a6.998 6.998 0 0 1-.793-.459l-.556.831zm1.873.925c.328.112.666.202 1.011.27l.194-.98a6.953 6.953 0 0 1-.884-.237l-.321.947zm4.132.271a7.944 7.944 0 0 0 1.012-.27l-.321-.948a6.954 6.954 0 0 1-.884.237l.194.98zm-2.083.135a8.1 8.1 0 0 0 1.046 0l-.064-.998a7.11 7.11 0 0 1-.918 0l-.064.998zM4.5 7.5a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1h-7z"/>
+</svg>'-%}
+{%- set open_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+  <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+</svg>'-%}
+{%- set stop_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-stop-circle" viewBox="0 0 16 16">
+  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+  <path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h3A1.5 1.5 0 0 1 11 6.5v3A1.5 1.5 0 0 1 9.5 11h-3A1.5 1.5 0 0 1 5 9.5v-3z"/>
+</svg>'-%}
+{%- set start_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
+  <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"></path>
+</svg>'-%}
+{%- set save_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-save" viewBox="0 0 16 16">
+  <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
+</svg>'-%}
+{%- set reset_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-counterclockwise" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+  <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+</svg>'-%}
+{%- set delete_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash-fill" viewBox="0 0 16 16">
+  <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z"/>
+</svg>'-%}

@@ -1,0 +1,130 @@
+{# This file contains macros to create generic UI elements 
+   such as vertical tabs and user input elements. #}
+
+
+{###- 
+Creates an unordered list containing vertical tabs on the left side.
+
+Can supply additional values in form a dictionary 
+  {"tab_title": {"key": "key_value", "active": false}} 
+to create additional tabs.
+Default tabs: Service, Options, Resources, Reservation, Kernels and Extensions (modules)
+-###}
+{%- macro create_vertical_tabs(id, additional_tabs={}) -%}
+{%- set tabs = {
+      "Service": {"key": "service", "active": true},
+      "Options": {"key": "options", "active": false},
+      "Resources": {"key": "resources", "active": false},
+      "Reservation": {"key": "reservation", "active": false},
+      "Kernels and Extensions": {"key": "modules", "active": false},
+    } -%}
+{%- do tabs.update(additional_tabs) -%}
+    
+<ul class="nav nav-tabs left-tabs" role="tablist">
+  {%- for title, values in tabs.items() -%}
+  {%- set key = id + "-" + values["key"] %}
+  {{ vertical_tab(title, key, values["active"]) }}
+  {%- endfor %}
+  </li>
+</ul>
+{%- endmacro -%}
+
+
+{###- Creates a vertical tab. Used for `create_vertical_tabs`. -###}
+{%- macro vertical_tab(title, key, active=false) -%}
+<li class="nav-item" role="presentation">
+  <a id="{{key}}-tab" class="nav-link {%- if active %} active {%- endif -%}" 
+    data-bs-toggle="tab" data-bs-target="#{{key}}" role="tab" 
+    aria-controls="{{key}}" aria-selected="true">
+    <span class="align-middle">{{ title }}</span>
+    {#- Warning icon to indicate changes in the user input (in the tab contents) #}
+    <span id="{{key}}-tab-warning" class="badge rounded-pill bg-warning p-1 align-middle" style="display: none">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation" viewBox="0 0 16 16">
+        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.553.553 0 0 1-1.1 0L7.1 4.995z"/>
+      </svg>
+      <span class="visually-hidden">settings changed</span>
+    </span>
+  </a>
+</li>
+{%- endmacro -%}
+
+
+{###- 
+Creates a tab pane with the specified DOM elements. `key` needs to match the key of the vertical tab.
+If `form=true`, the passed contents will be wrapped in a <form> element.
+
+Usage:
+{% call tab_panel(key) %}
+<div></div>
+{% endcall %}
+-###}
+{%- macro create_tab_panel(key, active=false, form=true) -%}
+<div id="{{key}}" class="tab-pane fade {%- if active -%}show active{%- endif -%}" 
+  role="tabpanel" aria-labelledby="{{key}}-tab" >
+  {%- if form %}
+  <form id="{{key}}-form">
+    {{ caller() }}
+  </form>
+  {%- else %}
+  {{ caller() }}
+  {%- endif %}
+</div>
+{%- endmacro -%}
+
+
+{###- 
+Creates a <select> element with a warning icon to indicate changes to the selected option.
+`col` specifies the size of the column for the label to the left.
+-###}
+{%- macro create_select(id, label, col=2) -%}
+{#  #}
+{%- set key = id + "-" + label.lower() -%}
+<div id="{{key}}-select-div" class="row mb-3">
+  {#- Label with warning icon. #}
+  <label for="{{key}}-select" class="col-{{col}} col-form-label">
+    <span class="align-middle">{{ label }}</span>
+    {#- Warning icon #}
+    <span id="{{key}}-warning" class="badge rounded-pill bg-warning p-1 align-middle" style="display: none">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation" viewBox="0 0 16 16">
+        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.553.553 0 0 1-1.1 0L7.1 4.995z"/>
+      </svg>
+      <span class="visually-hidden">settings changed</span>
+    </span>
+  </label>
+  {#- Select with div that shows a hint if an invalid choice has been made. #}
+  <div class="col-{{12-col}}">
+    <select id="{{key}}-select" class="form-select" required></select>
+    <div class="invalid-feedback">
+      Please choose a {{ label.lower() }}.
+    </div>
+  </div>
+</div>
+{%- endmacro -%}
+
+
+{###- 
+Creates a <input> element of type "number" with a warning icon to indicate changes to the input.
+`col` specifies the size of the column for the label to the left.
+-###}
+{%- macro create_number_input(id, label, col=5) -%}
+{%- set key = id + "-" + label.lower() -%}
+<div id="{{key}}-input-div" class="row mb-3">
+  {#- Label with warning icon. #}
+  <label for="{{key}}-input" class="col-{{col}} col-form-label">    
+    <span id="{{key}}-label" class="align-middle">{{ label }}</span>
+    <span id="{{key}}-warning" class="badge rounded-pill bg-warning p-1 align-middle" style="display: none">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation" viewBox="0 0 16 16">
+        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.553.553 0 0 1-1.1 0L7.1 4.995z"/>
+      </svg>
+      <span class="visually-hidden">settings changed</span>
+    </span>
+  </label>
+  {#- Number input with div that shows a hint if an invalid choice has been made. #}
+  <div class="col-{{12-col}}">
+    <input type="number" id="{{key}}-input" class="form-control" value="-1">
+    {#- Since there will be different min, max values depending on previous user selections,
+        we will dynamically set the warning message via JS. #}
+    <div class="invalid-feedback"></div>
+  </div>
+</div>
+{%- endmacro -%}

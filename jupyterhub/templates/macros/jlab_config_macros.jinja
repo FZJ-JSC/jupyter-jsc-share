@@ -1,0 +1,154 @@
+{# This file contains macros to create the content of the tabs panes
+   in the collapsible table row of the JupyterLab configuration table. #}
+{%- import template_path + "/macros/generic_ui_macros.jinja" as ui_macros -%}
+
+
+{###- 
+Create a service tab panel.
+`col` specifies the size of the column for the input labels.
+-###}
+{%- macro create_service_panel(id, col=2) -%}
+{%- call ui_macros.create_tab_panel(id + "-service", active=true) -%}
+{#- Text input for the user given name of a JLab #}
+<div class="row mb-3">
+  <label for="{{id}}-name-input" class="col-{{col}} col-form-label">Name</label>
+  <div class="col-{{12-col}}">
+    <input type="name" class="form-control" id="{{id}}-name-input" value="{{display_name}}">
+  </div>
+</div>
+{#- Select for JLab version #}
+{{ ui_macros.create_select(id, "Version", col) }}
+{%- endcall -%}
+{%- endmacro -%}
+
+
+{###- 
+Create a options tab panel containing system specific Jlab options.
+`col` specifies the size of the column for the input labels.
+-###}
+{%- macro create_options_panel(id, col=2) -%}
+{%- call ui_macros.create_tab_panel(id + "-options") -%}
+{{ ui_macros.create_select(id, "System", col) }}
+{{ ui_macros.create_select(id, "Account", col) }}
+{{ ui_macros.create_select(id, "Project", col) }}
+{{ ui_macros.create_select(id, "Partition", col) }}
+{%- endcall -%}
+{%- endmacro -%}
+
+
+{###- 
+Create a resources tab panel containing partition specific resources.
+`col` specifies the size of the column for the input labels.
+-###}
+{%- macro create_resources_panel(id, col=5) -%}
+{%- call ui_macros.create_tab_panel(id + "-resources") -%}
+{{ ui_macros.create_number_input(id, "Nodes", col) }}
+{{ ui_macros.create_number_input(id, "GPUs", col) }}
+{{ ui_macros.create_number_input(id, "Runtime", col) }}
+{%- endcall -%}
+{%- endmacro -%}
+
+
+{###- 
+Create a reservertion tab panel containing a reservation select.
+`col` specifies the size of the column for the input labels.
+-###}
+{%- macro create_reservation_panel(id, col=2) -%}
+{%- call ui_macros.create_tab_panel(id + "-reservation") -%}
+{{ ui_macros.create_select(id, "Reservation", col) }}
+{%- endcall -%}
+{%- endmacro -%}
+
+
+{###- 
+Create a modules tab panel containing checkboxes.
+If `col` is set, the checkbox columns will not depend on breakpoints.
+-###}
+{%- macro create_modules_panel(id, col=none) -%}
+{%- call ui_macros.create_tab_panel(id + "-modules") -%}
+<div id="{{id}}-extensions-div" style="display: none;">
+  <h4>Extensions</h4>
+  <div id="{{id}}-extensions-checkbox-div" class="row g-0"></div>
+</div>
+<div id="{{id}}-kernels-div" style="display: none;">
+  <h4>Kernels</h4>
+  <div id="{{id}}-kernels-checkbox-div" class="row g-0"></div>
+</div>
+<div id="{{id}}-proxies-div" style="display: none;">
+  <h4>Proxies</h4>
+  <div id="{{id}}-proxies-checkbox-div" class="row g-0"></div>
+</div>
+{%- endcall -%}
+{%- endmacro -%}
+
+
+{###- 
+Create a logs tab panel containing a log select and log div.
+`col` specifies the size of the column for the input labels.
+-###}
+{%- macro create_log_panel(id, col=2) -%}
+{%- call ui_macros.create_tab_panel(id + "-logs", form=False) -%}
+{{ ui_macros.create_select(id, "Log", col) }}
+{#- Log messages are appended via JS, so an empty div is enough here #}
+<div id="{{id}}-progress-log" class="card card-body"></div>
+{%- endcall -%}
+{%- endmacro -%}
+
+
+{###- 
+
+Create a modal with config options for new JupyterLabs with id "{{id}}-dialog".
+
+-###}
+{%- macro create_new_jupyterlab_modal(id) -%}
+<div class="modal fade text-black" id="{{id}}-dialog" tabindex="-1" aria-labelledby="{{id}}-label" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      {#- Modal header #}
+      <div class="modal-header">
+        <h5 class="modal-title" id="{{id}}-label">Configuration</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      {#- Body containing config options #}
+      <div class="modal-body">
+        <div class="row mt-2">
+          {#- Vertical tabs -#}
+          <div class="col-3">
+            <ul class="nav nav-tabs left-tabs" role="tablist">
+              {{ ui_macros.create_vertical_tabs(id) }}
+            </ul>
+          </div>
+
+          {#- Vertical tab content -#}
+          <div class="col-9">
+            <div id="{{id}}-configuration" class="tab-content pt-0">
+              {{ create_service_panel(id, col=3) }}
+              {{ create_options_panel(id, col=3) }}
+              {{ create_resources_panel(id) }}
+              {{ create_reservation_panel(id, col=3) }}
+              {{ create_modules_panel(id, col=6) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {#- Modal footer containing info alert and buttons #}
+      <div class="modal-footer">
+        <div class="alert fade mb-0 p-2" role="alert">
+          <span class="align-middle"></span>
+          <button type="button" class="btn-close align-middle" onClick="$(this).parent().removeClass('show');"></button>
+        </div>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="{{id}}-start-btn" class="btn btn-primary">
+          Start
+          <div class="spinner-border spinner-border-sm text-light d-none" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{%- endmacro -%}
