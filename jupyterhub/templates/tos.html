@@ -1,4 +1,4 @@
-{%- extends template_path + "/page.html" -%}
+{%- extends get_template("page.html").name -%}
 
 {%- block stylesheet -%}
   <link rel="stylesheet" href='{{static_url("css/legal.css")}}' type="text/css" />

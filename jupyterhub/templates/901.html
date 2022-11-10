@@ -1,5 +1,4 @@
-{%- extends template_path + "/error.html" -%}
-
+{%- extends get_tempate("error.html").name -%}
 
 {%- block h1_error -%}
 <h1 id="h901">We will redirect you to your service when it's started.</h1>
@@ -14,7 +13,6 @@
   width="40" /><br> -->
 <a id="cancel901" role="button" class="btn btn-lg btn-danger">Cancel</a>
 {%- endblock -%}
-
 
 {%- block script -%}
 {{ super() }}

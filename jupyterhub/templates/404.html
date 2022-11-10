@@ -1,4 +1,4 @@
-{%- extends template_path + "/error.html" -%}
+{%- extends get_tempate("error.html").name -%}
 
 {%- block error_detail -%}
 <p>Jupyter has lots of moons, but this is not one...</p>

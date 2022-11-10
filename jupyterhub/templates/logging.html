@@ -1,4 +1,4 @@
-{%- extends template_path + "/page.html" %}
+{%- extends get_template("page.html").name -%}
 
 {%- macro create_select(label, options, setting, log, system) -%}
 <div class="mb-3 row">

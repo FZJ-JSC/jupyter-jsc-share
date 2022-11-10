@@ -97,7 +97,7 @@
     {%- set show_login = show_login | default(true) -%}
     {%- set show_navigation = show_navigation | default(false) -%}
     <div>
-    {%- include template_path + "/header.html" -%}
+    {%- include get_template("header.html").name -%}
     </div>
 
     <div class="container-fluid flex-grow-1 p-0">
@@ -105,7 +105,7 @@
         {#- SIDEBAR -#}
         {%- set show_sidebar = show_sidebar | default(true) -%}
         {%- if user and show_sidebar -%}
-        {%- include template_path + "/sidebar.html" -%}
+        {%- include get_template("sidebar.html").name -%}
         {%- endif -%}
 
         {# MAIN #}
@@ -116,7 +116,7 @@
         </main>
 
         {# FOOTER #}
-        {%- include template_path + "/footer.html" -%}  
+        {%- include get_template("footer.html").name -%}  
       </div>
     </div>  
   </div> {# End of container div #}

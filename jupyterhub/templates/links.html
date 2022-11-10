@@ -1,4 +1,4 @@
-{%- extends template_path + "/page.html" -%}
+{%- extends get_template("page.html").name -%}
 {%- set show_navigation = true -%}
 {%- set show_sidebar = false -%}
 {%- set extra_main_classes = "h-100" -%}

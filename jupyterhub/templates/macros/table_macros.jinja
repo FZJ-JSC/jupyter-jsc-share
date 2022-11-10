@@ -192,8 +192,8 @@ Creates a collapsible table row with empty user input elements.
 The content of user input elements need to change dynamically, so they get filled via JS instead.
 -###}
 {# This macros relies on macros from other files. #}
-{%- import template_path + "/macros/generic_ui_macros.jinja" as ui_macros -%}
-{%- import template_path + "/macros/jlab_config_macros.jinja" as config_macros with context -%}
+{%- import get_template("macros/generic_ui_macros.jinja").name as ui_macros -%}
+{%- import get_template("macros/jlab_config_macros.jinja").name as config_macros with context -%}
 {%- macro create_collapsible_tr(id, display_name) -%}
 <tr data-server-id="{{id}}" class="collapse-tr" style="--bs-table-accent-bg: transparent;">
   {#- Remove padding from table data cell to hide the row when collapsed -#}

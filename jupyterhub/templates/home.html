@@ -1,4 +1,4 @@
-{%- extends template_path + "/page.html" %}
+{%- extends get_template("page.html").name -%}
 
 {%- block stylesheet -%}
   <link rel="stylesheet" href='{{static_url("css/home.css")}}' type="text/css"/>
@@ -14,8 +14,8 @@
 
 {#- the macros directory includes macros to create UI elements -#}
 {#- `with context` makes variables in this document available to the imported macros -#}
-{%- import template_path + "/macros/table_macros.jinja" as table_macros with context-%}
-{%- import template_path + "/macros/jlab_config_macros.jinja" as config_macros with context -%}
+{%- import get_template("macros/table_macros.jinja").name as table_macros with context-%}
+{%- import get_template("macros/jlab_config_macros.jinja").name as config_macros with context-%}
 
 {%- macro create_announcement() -%}
 <div class="alert bg-info alert-dismissible fade show" style="color: #023d6b;" role="alert">
