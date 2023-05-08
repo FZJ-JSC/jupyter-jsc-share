@@ -1,0 +1,102 @@
+{%- import "macros/svgs.jinja" as svg -%}
+
+{%- macro random_int(len) -%}
+  {%- for _ in range(len) -%}
+      {{ range(10) | random }}
+  {%- endfor -%}
+{%- endmacro -%}
+
+{%- macro number_of_users(system) -%}
+<div class="d-inline-block text-muted ms-1" data-toggle="users-tooltip" title="Number of active {%- if system == 'jupyter' %} users {%- else %} servers {%- endif -%}">
+  {{ svg.users_svg | safe }}
+  <span id="{{system}}-users">0</span>
+</div>
+{%- endmacro -%}
+
+{%- macro ampel(system, href) -%}
+{%- set system_lower = system.lower() %}
+<div id="ampel-{{system_lower}}" class="text-center">
+  <img class="ampel-img" src='{{static_url( "images/footer/systems/" + system_lower + ".svg?v=" + random_int(10) )}}' />
+  <a href="{{href}}" target="_blank" class="align-middle" data-toggle="ample-tooltip"
+    title=''>
+    <!--title='{incident_messages.get(system, "")}'>-->
+    {%- if system == "JUPYTER" -%}
+    Jupyter-JSC
+    {%- elif system == "HDFCLOUD" -%}
+    HDF-Cloud
+    {%- else -%}
+    {{ system }}
+    {%- endif -%}
+  </a>
+  {{ number_of_users(system_lower) }}
+</div>
+{%- endmacro -%}
+
+
+{%- block footer -%}
+<footer class="navbar mt-auto p-0">
+  <div id="footer-top" class="container-fluid justify-content-evenly p-4">
+    {{ ampel("JUPYTER", "https://status.jsc.fz-juelich.de/services/40") }}
+    {{ ampel("JUWELS", "https://status.jsc.fz-juelich.de/services/13") }}
+    {{ ampel("JURECA", "https://status.jsc.fz-juelich.de/services/1") }}
+    {{ ampel("JUSUF", "https://status.jsc.fz-juelich.de/services/30") }}
+    {{ ampel("DEEP", "https://status.jsc.fz-juelich.de/services/43") }}
+    {{ ampel("HDFML", "https://status.jsc.fz-juelich.de/services/21") }}
+    {{ ampel("HDFCLOUD", "https://status.jsc.fz-juelich.de/services/32") }}
+  </div>
+  <div id="footer-bottom" class="container-fluid justify-content-evenly">
+    {%- set footer_margin = "m-1" -%}
+    {%- set logo_width = "220px" %}
+      <a class="py-2 pe-4" target="_blank" href="https://www.fz-juelich.de">&copy; Forschungszentrum Jülich</a>
+      <div>
+        <a href="/hub/imprint">Legal Notice</a>
+        <span class="{{ footer_margin }}">|</span>
+        <a href="/hub/privacy">Privacy Policy</a>
+        <span class="{{ footer_margin }}">|</span>
+        <a href="/hub/terms">Terms of Service</a>
+        <span class="{{ footer_margin }}">|</span>
+        <a href="mailto:ds-support@fz-juelich.de?subject=Jupyter-JSC Support&amp;body=Please describe your problem here. (english or german)">Support</a>
+      </div>
+      <a href="https://www.helmholtz.de/en/" target="_blank">
+        <img id="helmholtz-logo" class="m-4" width="{{ logo_width }}" src='{{ static_url("images/footer/helmholtz.png", include_version=False) }}'/>
+    </a>
+  </div>
+</footer>
+{%- endblock -%}
+
+
+{%- block script -%}
+<script type="text/javascript">
+$(function () {
+  $('[data-toggle="ample-tooltip"]').tooltip();
+  $('[data-toggle="users-tooltip"]').tooltip();
+})
+
+function updateNumberOfUsers() {
+  $.get( location.origin + "/api/usercount", function( data ) {
+    for (const [system, usercount] of Object.entries(data)) {
+      switch (system) {
+        case 'jupyterhub':
+          $("#jupyter-users").html(usercount);
+          break;
+        default:
+          $(`#${system.toLowerCase()}-users`).html(usercount['total']);
+          var partitionInfos = "";
+          for (const [partition, users] of Object.entries(usercount['partitions']))
+          {
+            partitionInfos += `\n${partition}: ${users}`;
+          }
+          $(`#${system.toLowerCase()}-users`)
+            .parents("[data-toggle]")
+            .attr("data-bs-original-title", `Number of active servers${partitionInfos}`);
+      }
+    }
+  });
+}
+
+$(document).ready(function() {
+  updateNumberOfUsers();
+  setInterval(updateNumberOfUsers, 60000); 
+})
+</script>
+{%- endblock -%}

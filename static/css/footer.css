@@ -1,0 +1,63 @@
+/* Top 
+Footer */
+
+#footer-top {
+  background-color: #EEE;
+}
+
+.ampel-img {
+  height: 40px;
+}
+
+div[id^='ampel'] {
+  min-width: 150px;
+}
+
+#footer-top a {
+  color: #023d6b;
+  font-weight: bold;
+}
+
+#footer-top a:hover {
+  color: #002036;
+}
+
+
+/* Bottom 
+Footer */
+
+#footer-bottom {
+  background-color: #002036;
+}
+
+#footer-bottom * {
+  color: white;
+  font-size: 14px;
+}
+
+
+/* Tooltip
+*/
+
+/* .tooltip-inner {
+  background-color: #002036;
+  border-radius: 0;
+}
+
+.tooltip .tooltip-arrow::before {
+  border-top-color: #002036;
+} */
+
+.tooltip-inner {
+  background-color: #eee;
+  border-radius: 0;
+  color: #002036;
+  min-height: 42px;
+  max-width: unset;
+  white-space: pre-line;
+  text-align: start;
+}
+
+.tooltip .tooltip-arrow::before {
+  border-top-color: transparent;
+}
