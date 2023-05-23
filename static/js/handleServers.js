@@ -108,6 +108,7 @@ require(["jquery", "jhapi", "utils"], function (
         // Hook up event-stream for progress
         if (!(id in evtSources)) {
           var progressUrl = utils.url_path_join(jhdata.base_url, "api/users", jhdata.user, "servers", id, "progress");
+          progressUrl = progressUrl + "?_xsrf=" + window.jhdata.xsrf_token;
           evtSources[id] = new EventSource(progressUrl);
           evtSources[id].onmessage = function (e) {
             onEvtMessage(e, id);
@@ -333,7 +334,7 @@ require(["jquery", "jhapi", "utils"], function (
   }
 
   function _enableTrButtonsNonRunning(tr) {
-    var na = tr.find(".na-status").text();
+    var na = tr.find(".na-status").text() || 0;
     // Show start or na for non-running labs
     if (na != "0") {
       tr.find(".btn-na-lab").removeClass("d-none disabled");

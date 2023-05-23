@@ -1,6 +1,6 @@
 {%- macro user_information() -%}
 {%- if user %}
-<div class="dropdown text-end">
+<div class="dropdown">
   <button class="btn btn-outline-primary dropdown-toggle mb-2" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">{{ user.name }}</button>
   <ul class="dropdown-menu dropdown-menu-end w-100">
     {%- if auth_state and auth_state.get("last_login", False) %}
@@ -54,7 +54,7 @@
     </div>
     <div class="d-flex flex-column align-items-end ms-auto me-2">
       {#- Logo right #}
-      <a class="navbar-brand" href="/">
+      <a class="navbar-brand me-0" href="/">
         <img id="jupyter-logo" src='{{ static_url("images/header/jupyterjsc.png", include_version=False) }}' height="60px" alt="Jupyter-JSC" title="{{hostname}}">
       </a>
       {#- User widget #}

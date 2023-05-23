@@ -82,18 +82,17 @@ Vertical tabs
   margin: auto 0;
 }
 
-/* 
-New jupyterlab dialog button
-*/
 
-.new {
-  border: 2px solid #fff;
+/* Module select all or none */
+.form-check-input.module-selector:checked{
+  background-color: var(--bs-success) !important;
+  border: 0;
 }
-
-.new:hover,
-.new:focus,
-.new:active {
-  border: 2px solid #fff;
+.form-check-input.module-selector:focus, .form-check-input.module-selector::after, .form-check-input.module-selector:not(:disabled):not(.disabled):active:focus {
+  color: black;
+  outline: 0;
+  border: 0;
+  box-shadow: 0 0 0 0.25rem rgb(25, 135, 84, 0.25) !important;
 }
 
 

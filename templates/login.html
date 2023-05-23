@@ -102,9 +102,11 @@
 
 {%- block script -%}
 <script src='{{static_url("js/login.js", include_version=False) }}'></script>
-<!-- <script src='{{static_url("js/header.js", include_version=False) }}'></script> -->
 
 <script>
+$("nav [id$=nav-item]").removeClass("active");
+$("#start-nav-item, #collapse-start-nav-item").addClass("active");
+
 $("#btn-login").click(function () {
   var url = window.location.search;
   window.location.href = "/hub/oauth_login" + url;

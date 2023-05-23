@@ -28,6 +28,9 @@ Footer */
 
 #footer-bottom {
   background-color: #002036;
+  min-height: 60px;
+  padding-left: 72px;
+  padding-right: 72px;
 }
 
 #footer-bottom * {

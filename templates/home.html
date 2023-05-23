@@ -9,67 +9,48 @@
 {#- Set some convenience variables -#}
 {%- set named_spawners = user.all_spawners(include_default=False) | list -%}
 {%- set custom_config = auth_state.get("custom_config", {}) -%}
-{%- set dropdown_options = auth_state.get("options_form", {}).get("dropdown_lists").get("options", {}) -%}
+{%- set dropdown_options = auth_state.get("options_form", {}).get("dropdown_list", {}) -%}
 {%- set additional_spawn_options = custom_config.get("additional_spawn_options", {}) -%}
 {%- set new = "new_jupyterlab" -%}  {# id for new jupyterlabs. Cannot contain "-" #}
 
 
-{%- macro determine_if_lab_na(user_options) -%}
-  {#- Set user options related variables -#}
-  {%- set system = user_options.get("system", None) -%}
-
-  {#- Project does not exist anymore for the system -#}
-  {#- {%- if project != None and project not in dropdown_options.get(option, {}).get(system, {}).get(account, {}).keys() -%} {%- set na = 1 -%} -#}
-  {#- System is in maintenance. -#}
-  {%- if system in maintenance_list -%} {%- set na = 1 -%}
-  {#- In all other cases, the JupyterLab is allowed to be started -#}
-  {%- else -%} {%- set na = 0 -%} {%- endif -%}
-  {#- Return na status #}
-  {{ na }}
-{%- endmacro -%}
-
-
-{%- macro create_text_input(id, label, placeholder="") -%}
+{%- macro create_text_input(id, key, label="", placeholder="") -%}
 {#- Macro to create a (non-required) text input #}
-{%- set key = id + "-" + label.lower() %}
-<div id="{{key}}-input-div"  class="row mb-3">
-  <label for="{{ key }}-input" class="col-4 col-form-label">{{ label }}</label>
+<div id="{{id}}-{{key}}-input-div"  class="row mb-3">
+  <label for="{{id}}-{{key}}-input" class="col-4 col-form-label">{{ label if label else key.capitalize() }}</label>
   <div class="col-8">
-    <input type="text" class="form-control" id="{{ key }}-input" placeholder="{{placeholder}}">
+    <input type="text" class="form-control" id="{{id}}-{{key}}-input" placeholder="{{placeholder}}">
   </div>
 </div>
 {%- endmacro -%}
 
-{%- macro create_select(id, label) -%}
+{%- macro create_select(id, key, label="") -%}
 {#- Macro to create an empty select which should be filled via JS. -#}
-{%- set key = id + "-" + label.lower() %}
-<div id="{{key}}-select-div" class="row mb-3">
-  <label for="{{key}}-select" class="col-4 col-form-label">{{ label }}</label>
+<div id="{{id}}-{{key}}-select-div" class="row mb-3">
+  <label for="{{id}}-{{key}}-select" class="col-4 col-form-label">{{ label if label else key.capitalize() }}</label>
   <div class="col-8">
-    <select id="{{key}}-select" class="form-select" required></select>
-    <div class="invalid-feedback">Please choose a {{ label.lower() }}.</div>
+    <select id="{{id}}-{{key}}-select" class="form-select" required></select>
+    <div class="invalid-feedback">Please choose a {{ key }}.</div>
   </div>
 </div>
 {%- endmacro -%}
 
-{%- macro create_number_input(id, label) -%}
-{%- set key = id + "-" + label.lower() -%}
-<div id="{{key}}-input-div" class="row mb-3">  {# style="display: none; #}
-  <label for="{{key}}-input" class="col-4 col-form-label">{{ label }}</label>
+{%- macro create_number_input(id, key, label="") -%}
+<div id="{{id}}-{{key}}-input-div" class="row mb-3">  {# style="display: none; #}
+  <label for="{{id}}-{{key}}-input" class="col-4 col-form-label">{{ label if label else key.capitalize() }}</label>
   <div class="col-8">
-    <input type="number" id="{{key}}-input" class="form-control" value="-1">
+    <input type="number" id="{{id}}-{{key}}-input" class="form-control" value="-1">
     {#- Set the warning message via JS for different min max values. #}
     <div class="invalid-feedback"></div>
   </div>
 </div>
 {%- endmacro -%}
 
-{%- macro create_checkbox_input(id, label) -%}
-{%- set key = id + "-" + label.lower() -%}
-<div id="{{key}}-input-div" class="row mb-3 align-items-center" style="display: none;">
-  <label for="{{key}}-input" class="col-4 col-form-label">{{ label }}</label>
+{%- macro create_checkbox_input(id, key, label="") -%}
+<div id="{{id}}-{{key}}-input-div" class="row mb-3 align-items-center" style="display: none;">
+  <label for="{{id}}-{{key}}-input" class="col-4 col-form-label">{{ label if label else key.capitalize() }}</label>
   <div class="col-8">
-    <input type="checkbox" class="form-check-input" id="{{key}}-input" value="None">
+    <input type="checkbox" class="form-check-input" id="{{id}}-{{key}}-input" value="None">
   </div>
 </div>
 {%- endmacro -%}
@@ -99,14 +80,14 @@
   <th scope="row" class="name-td">{{ name }}</th> 
   <td class="system-td">{{ system }}</td>
   <td class="partition-td">
-    {%- if partition == None %}
+    {%- if not partition %}
     <span class="text-muted">N/A</span>
     {%- else %}
     {{ partition }} 
     {%- endif %}
   </td>
   <td class="project-td"> 
-    {%- if project == None %}
+    {%- if not project %}
     <span class="text-muted">N/A</span>
     {%- else %}
     {{ project }}
@@ -115,26 +96,23 @@
   {{ create_lab_progress_td(id) }}
   <td class="actions-td"> 
     {%- set button_margin = "my-1 me-1" -%} 
-    {%- set na = determine_if_lab_na(user_options) | int %}
     {#- Save N/A status to page #}
-    <span class="na-status d-none">{{na}}</span>  
+    <span id="{{id}}-na-status" class="na-status d-none">0</span>  
     {#- Create and show appropriate buttons #}
-    {%- if na == 0 %}  {#- Lab can be started #}
+    <button type="button" id="{{id}}-na-btn" class="btn btn-secondary btn-na-lab disabled d-none {{button_margin}}">
+      {{ svg.na_svg | safe }} N/A
+    </button>
+    <div id="{{id}}-na-info" class="d-none d-inline-block text-muted" style="font-size: smaller;"></div>
     <button type="button" id="{{id}}-start-btn" class="btn btn-primary btn-start-lab {%if s.active and not s._stop_pending-%}d-none{%-endif%} {{button_margin}}">
       {{ svg.start_svg | safe }} Start
     </button>
-    <a type="button" class="btn btn-success btn-open-lab {%if not s.active or s._stop_pending-%}d-none{%-endif%} {{button_margin}}" href='/user/{{user.name}}/{{id}}' target="_blank">
+    <a type="button" id="{{id}}-open-btn" class="btn btn-success btn-open-lab {%if not s.active or s._stop_pending-%}d-none{%-endif%} {{button_margin}}" href='/user/{{user.name}}/{{id}}' target="_blank">
       {{ svg.open_svg | safe }} Open
     </a>
-    {%- else %}
-    <button type="button" class="btn btn-secondary btn-na-lab disabled {button_margin}}">
-      {{ svg.na_svg | safe }} N/A
-    </button>
-    {%- endif -%}
-    <button type="button" class="btn btn-danger btn-cancel-lab {%if not s.active or s._stop_pending-%}d-none{%-endif%} {%if s.active and s.pending == None-%}d-none{%-endif-%}">
+    <button type="button" id="{{id}}-cancel-btn" class="btn btn-danger btn-cancel-lab {%if not s.active or s._stop_pending-%}d-none{%-endif%} {%if s.active and s.pending == None-%}d-none{%-endif-%}">
       {{ svg.stop_svg | safe }} Cancel
     </button>
-    <button type="button" class="btn btn-danger btn-stop-lab {%if not s.active or s._stop_pending-%}d-none{%-endif%} {%if s.active and s.pending != None-%}d-none{%-endif-%}">
+    <button type="button" id="{{id}}-stop-btn" class="btn btn-danger btn-stop-lab {%if not s.active or s._stop_pending-%}d-none{%-endif%} {%if s.active and s.pending != None-%}d-none{%-endif-%}">
       {{ svg.stop_svg | safe }} Stop
     </button>
   </td>
@@ -201,15 +179,15 @@
         <div class="tab-content w-100" id="{{ id }}-tabContent">
           <div class="tab-pane fade show active" id="{{ id }}-config" role="tabpanel">
             <form id="{{id}}-lab-config-form">
-              {{ create_text_input(id, "Name", placeholder="Give your lab a name") }}
-              {{ create_select(id, "Version") }}
+              {{ create_text_input(id, "name", placeholder="Give your lab a name") }}
+              {{ create_select(id, "version") }}
               <hr>
-              {{ create_select(id, "System") }}
-              {{ create_select(id, "Account") }}
-              {{ create_select(id, "Project") }}
-              {{ create_select(id, "Partition") }}
+              {{ create_select(id, "system") }}
+              {{ create_select(id, "account") }}
+              {{ create_select(id, "project") }}
+              {{ create_select(id, "partition") }}
               <hr id="{{id}}-reservation-hr">
-              {{ create_select(id, "Reservation") }}
+              {{ create_select(id, "reservation") }}
               <div id="{{id}}-reservation-info-div" class="row mb-3">
                 {%- set reservation_info_classes = "col-4 fw-bold"%}
                 <div id="{{id}}-reservation-info" class="col-8 offset-4">
@@ -239,27 +217,39 @@
           </div>
           <div class="tab-pane fade" id="{{ id }}-resources" role="tabpanel">
             <form id="{{id}}-resources-form">
-              {{ create_number_input(id, "Nodes") }}
-              {{ create_number_input(id, "GPUs") }}
-              {{ create_number_input(id, "Runtime") }}
-              {{ create_checkbox_input(id, "XCBServer")}}
-              {{ create_number_input(id, "XServer") }}
+              {{ create_number_input(id, "nodes") }}
+              {{ create_number_input(id, "gpus", "GPUs") }}
+              {{ create_number_input(id, "runtime", "Runtime (min)") }}
+              {{ create_checkbox_input(id, "xcbserver", "Activate XServer")}}
+              {{ create_number_input(id, "xserver", "XServer GPU Index") }}
             </form>
             {{ create_lab_config_buttons(id, id == new) }}
           </div>
           <div class="tab-pane fade" id="{{ id }}-modules" role="tabpanel">
-          <form id="{{id}}-modules-form">
-            {%- for module_set in custom_config.get("additional_spawn_options", {}).keys() %}
-            <div id="{{id}}-{{module_set}}-div">
-              <h4>{{ module_set | title}}</h4>
-              <div id="{{id}}-{{module_set}}-checkboxes-div" class="row g-0"></div>
+            <form id="{{id}}-modules-form">
+              {%- for module_set in custom_config.get("additional_spawn_options", {}).keys() %}
+              <div id="{{id}}-{{module_set}}-div">
+                <h4>{{ module_set | title}}</h4>
+                <div id="{{id}}-{{module_set}}-checkboxes-div" class="row g-0"></div>
+              </div>
+              {%- endfor %}
+            </form>
+            <hr>
+            <div id="{{id}}-modules-selector-div" class="row g-0">
+              {%- set module_cols = "col-sm-6 col-md-4 col-lg-3" %}
+              <div class="form-check {{module_cols}}">
+                <input class="form-check-input module-selector" type="checkbox" id="{{id}}-modules-select-all">
+                <label class="form-check-label" for="{{id}}-modules-select-all">Select all</label>
+              </div>
+              <div class="form-check {{module_cols}}">
+                <input class="form-check-input module-selector" type="checkbox" id="{{id}}-modules-select-none">
+                <label class="form-check-label" for="{{id}}-modules-select-none">Deselect all</label>
+              </div>
             </div>
-            {%- endfor %}
-          </form>
-          {{ create_lab_config_buttons(id, id == new) }}
+            {{ create_lab_config_buttons(id, id == new) }}
           </div>
           <div class="tab-pane fade" id="{{ id }}-logs" role="tabpanel">
-              {{create_select(id, "Log") }}
+              {{create_select(id, "log") }}
               <div id="{{id}}-log" class="card card-body"></div>
               {{ create_lab_config_buttons(id, id == new) }}
           </div>
@@ -481,7 +471,7 @@ function updateService(id, value) {
 }
 
 function updateSystems(id, service, value) {
-  const systemInfos = {{custom_config.get("systems") | tojson}};
+  const systemInfos = {{custom_config.get("systems") | tojson}} || {};
 
   let select = $(`select#${id}-system-select`);
   const currentVal = select.val();
@@ -499,7 +489,7 @@ function updateAccounts(id, service, system, value) {
   const currentVal = select.val();
   resetInputElement(select);
 
-  const accountsAllowed = dropdownOptions[service][system] || {};
+  const accountsAllowed = (dropdownOptions[service] || {})[system] || {};
   for (const account of Object.keys(accountsAllowed).sort()) {
     select.append(`<option value="${account}">${account}</option>`);
   }
@@ -511,7 +501,7 @@ function updateProjects(id, service, system, account, value) {
   const currentVal = select.val();
   resetInputElement(select);
 
-  const projectsAllowed = (dropdownOptions[service][system] || {}) [account] || {};
+  const projectsAllowed = ( (dropdownOptions[service] || {}) [system] || {}) [account] || {};
   for (const project of Object.keys(projectsAllowed).sort()) {
     select.append(`<option value="${project}">${project}</option>`);
   }
@@ -527,8 +517,8 @@ function updatePartitions(id, service, system, account, project, value) {
   // Distinguish between login and compute nodes
   var login_nodes = [];
   var compute_nodes = [];
-  const partitionsAllowed = ( (dropdownOptions[service][system] || {}) [account] || {}) [project] || {};
-  const interactivePartitions = systemInfos[system].interactive_partitions || {};
+  const partitionsAllowed = ( ( (dropdownOptions[service] || {}) [system] || {}) [account] || {}) [project] || {};
+  const interactivePartitions = (systemInfos[system] || {}).interactive_partitions || {};
   for (const partition of Object.keys(partitionsAllowed).sort()) {
     if ( interactivePartitions.includes(partition) ) login_nodes.push(partition);
     else compute_nodes.push(partition);
@@ -548,19 +538,19 @@ function updatePartitions(id, service, system, account, project, value) {
 }
 
 function updateReservation(id, service, system, account, project, partition, value) {
-  const reservationInfos = {{auth_state.get("options_form").get("reservations") | tojson}};
+  const reservationInfos = {{auth_state.get("options_form").get("reservations") | tojson}} || {};
 
   let select = $(`select#${id}-reservation-select`);
   const currentVal = select.val();
   resetInputElement(select, required=false);
 
-  const reservationsAllowed = ( ( (dropdownOptions[service][system] || {}) [account] || {}) [project] || {}) [partition] || {};
+  const reservationsAllowed = ( ( ( (dropdownOptions[service] || {}) [system] || {}) [account] || {}) [project] || {}) [partition] || {};
   if (reservationsAllowed.length > 0 && JSON.stringify(reservationsAllowed) !== JSON.stringify(["None"])) {
     for (const reservation of reservationsAllowed) {
       if (reservation == "None") select.append(`<option value="${reservation}">${reservation}</option>`);
       else {
         const reservationName = reservation.ReservationName;
-        const systemReservationInfos = reservationInfos[system];
+        const systemReservationInfos = reservationInfos[system] || {};
         for (const reservationInfo of systemReservationInfos) {
           if (reservationInfo.ReservationName == reservationName) {
             if (reservationInfo.State == "ACTIVE") select.append(`<option value="${reservationName}">${reservationName}</option>`);
@@ -581,8 +571,7 @@ function updateReservation(id, service, system, account, project, partition, val
 }
 
 function updateResources(id, service, system, account, project, partition, nodes, gpus, runtime, xserver) {
-  const resourceInfos = {{auth_state.get("options_form").get("resources") | tojson}};
-
+  const resourceInfos = {{auth_state.get("options_form").get("resources") | tojson}} || {};
   let nodesInput = $(`input#${id}-nodes-input`);
   let gpusInput = $(`input#${id}-gpus-input`);
   let runtimeInput = $(`input#${id}-runtime-input`);
@@ -597,7 +586,7 @@ function updateResources(id, service, system, account, project, partition, nodes
   [nodesInput, gpusInput, runtimeInput, xserverInput].forEach( input => resetInputElement(input, required=false));
   xserverCheckboxInput[0].checked = false;
 
-  const systemResources = resourceInfos[service][system] || {};
+  const systemResources = (resourceInfos[service] || {})[system] || {};
   if ($.isEmptyObject(systemResources)) {
     $(`#${id}-resources-tab`).addClass("disabled");
     tabWarning.addClass("invisible");
@@ -656,11 +645,11 @@ function updateResources(id, service, system, account, project, partition, nodes
       }
 
       if ("xserver" in partitionResources) {
-        let cblabel = partitionResources.xserver.cblabel || "Xserver";
+        let cblabel = partitionResources.xserver.cblabel || "Activate XServer";
         $(`label[for*=${id}-xcbserver-input]`).text(cblabel);
         var min = (partitionResources.xserver.minmax || [0,1])[0];
         var max = (partitionResources.xserver.minmax || [0,1])[1];
-        let label = partitionResources.xserver.label || "XServer";
+        let label = partitionResources.xserver.label || "XServer GPU Index";
         $(`label[for*=${id}-xserver-input]`).text(label + " [" + min + "," + max + "]");
 
         if (xserver) { xserverCheckboxInput[0].checked = true; }
@@ -698,9 +687,9 @@ function updateResources(id, service, system, account, project, partition, nodes
 }
 
 function updateModules(id, service, system, account, project, partition, values) {
-  const moduleInfos = {{custom_config.get("additional_spawn_options", {}) | tojson}};
-  const resourceInfos = {{auth_state.get("options_form").get("resources") | tojson}};
-  const partitionResources = (resourceInfos[service][system] || {}) [partition] || {};
+  const moduleInfos = {{custom_config.get("additional_spawn_options", {}) | tojson}} || {};
+  const resourceInfos = {{auth_state.get("options_form").get("resources") | tojson}} || {};
+  const partitionResources = ( (resourceInfos[service] || {}) [system] || {}) [partition] || {};
 
   const form = $(`#${id}-modules-form`);
   var tabWarning = $(`#${id}-modules-tab-warning`);
@@ -731,8 +720,9 @@ function updateModules(id, service, system, account, project, partition, values)
             if (!currentOptions.includes(module)) {
               let parent = $(`#${id}-${moduleSet}-checkboxes-div`);
               let checked = moduleInfo.default ? "checked" : "";
+              {%- set module_cols = "col-sm-6 col-md-4 col-lg-3" %}
               let cbHtml = `
-                <div id="${id}-${module}-cb-div" class="form-check col-sm-6 col-md-4 col-lg-3">
+                <div id="${id}-${module}-cb-div" class="form-check {{module_cols}}">
                   <input type="checkbox" class="form-check-input" id="${id}-${module}-check" value="${module}" ${checked}>
                     <label class="form-check-label" for="${id}-${module}-check">
                       <span class="align-middle">${moduleInfo.displayName}</span>
@@ -767,6 +757,16 @@ function updateModules(id, service, system, account, project, partition, values)
     // Show tab warning to indicate changes in checkbox options
     tabWarning.removeClass("invisible");
   }
+
+  // Set values according to previous values.
+  if (values) {
+    // Loop through all checkboxes and only check those in values.
+    $(`#${id}-modules`).find("input[type=checkbox]").each((i, cb) => {
+     if (values.includes(cb.value)) cb.checked = true;
+     else cb.checked = false;
+    })
+  }
+  
   if (enableModulesTab) $(`#${id}-modules-tab`).removeClass("disabled");
   else {
     $(`#${id}-modules-tab`).addClass("disabled");
@@ -795,17 +795,17 @@ function getLabConfigSelectValues(id) {
 $("select[id*=version]").change(function() {
   const id = getId(this);
   const values = getLabConfigSelectValues(id);
-  updateSystems(id, values.service);
+  if (!$(this).hasClass("no-update")) updateSystems(id, values.service);
 });
 $("select[id*=system]").change(function() {
   const id = getId(this);
   const values = getLabConfigSelectValues(id);
-  updateAccounts(id, values.service, values.system);
+  if (!$(this).hasClass("no-update")) updateAccounts(id, values.service, values.system);
 });
 $("select[id*=account]").change(function() {
   const id = getId(this);
   const values = getLabConfigSelectValues(id);
-  updateProjects(id, values.service, values.system, values.account);
+  if (!$(this).hasClass("no-update")) updateProjects(id, values.service, values.system, values.account);
 });
 $("select[id*=project]").change(function() {
   const id = getId(this);
@@ -815,9 +815,11 @@ $("select[id*=project]").change(function() {
 $("select[id*=partition]").change(function() {
   const id = getId(this);
   const values = getLabConfigSelectValues(id);
-  updateReservation(id, values.service, values.system, values.account, values.project, values.partition);
-  updateResources(id, values.service, values.system, values.account, values.project, values.partition);
-  updateModules(id, values.service, values.system, values.account, values.project, values.partition);
+  if (!$(this).hasClass("no-update")) {
+    updateReservation(id, values.service, values.system, values.account, values.project, values.partition);
+    updateResources(id, values.service, values.system, values.account, values.project, values.partition);
+    updateModules(id, values.service, values.system, values.account, values.project, values.partition);
+    }
 });
 $("input[id*=xcbserver-input]").change(function() {
   const id = getId(this);
@@ -829,7 +831,7 @@ $("input[id*=xcbserver-input]").change(function() {
   }
 });
 $("select[id*=reservation]").change(function() {
-  const reservationInfos = {{auth_state.get("options_form").get("reservations") | tojson}};
+  const reservationInfos = {{auth_state.get("options_form").get("reservations") | tojson}} || {};
 
   const id = getId(this);
   const value = $(this).val();
@@ -838,7 +840,7 @@ $("select[id*=reservation]").change(function() {
       $(`#${id}-reservation-info-div`).hide();
       return;
     }
-    const systemReservationInfos = reservationInfos[getLabConfigSelectValues(id)["system"]];
+    const systemReservationInfos = reservationInfos[getLabConfigSelectValues(id)["system"]] || [];
     for (const reservationInfo of systemReservationInfos) {
       if (reservationInfo.ReservationName == value) {
         $(`#${id}-reservation-start`).html(reservationInfo.StartTime);
@@ -854,9 +856,162 @@ $("select[id*=reservation]").change(function() {
     $(`#${id}-reservation-info-div`).hide();
   }
 });
+$("input.module-selector").click(function() {
+  const id = getId(this, slice_index=1);
+  const allOrNone = $(this).attr("id").includes("select-all") ? "all" : "none";
+  var checkboxes = $(`#${id}-modules-form`).find("input[type=checkbox]");
+  if (allOrNone == "all") {
+    $(`#${id}-modules-select-none`)[0].checked = false;
+    checkboxes.each((i, cb) => { cb.checked = true; });
+  }
+  else if (allOrNone == "none") {
+    $(`#${id}-modules-select-all`)[0].checked = false;
+    checkboxes.each((i, cb) => { cb.checked = false; });
+  }
+})
+</script>
 
-function setUserOptions(id, options) {
-  const na = $(`tr[data-server-id=${id}]`).find("span.na-status").html();
+<script>
+function _appendToLog(htmlMsg, log) {
+  htmlMsg = htmlMsg.replace(/&nbsp;/g, ' ');
+  var exists = false;
+  log.children().each( function (i, e) {
+    let logMsg = $(e).html();
+    if (htmlMsg == logMsg) exists = true;
+  })
+  if (!exists) log.append($('<div class="log-div">').html(htmlMsg));
+}
+
+function _updateProgressPercentage(id, text, progress) {
+  var progressBar = $(`#${id}-progress-bar`);
+  var progressInfo = $(`#${id}-progress-info-text`);
+  progressBar.width(100).html(`<b>${progress}%</b>`);
+  progressInfo.html(text);
+}
+
+function _updateProgressState(id, text, bg) {
+  var progressBar = $(`#${id}-progress-bar`);
+  var progressInfo = $(`#${id}-progress-info-text`);
+  progressBar
+    .width(100)
+    .removeClass("bg-success bg-danger")
+    .addClass(bg)
+    .html("");
+  progressInfo.html(text);
+}
+
+function checkIfAvailable(id, options) {
+  var available = true;
+  var reason = "due to "
+  var incidentUrl = location.origin + "/api/incidents?_xsrf=" + window.jhdata.xsrf_token;
+  // Check if system is not available due to incident
+  $.get( incidentUrl, function( data ) {
+    const system = options["system"].replace('-', '').toUpperCase();
+    if (data[system] && data[system].health || 0 > data.threshold) available = false;
+    reason += "maintenance";
+  })
+  // Check if system is not available due to groups
+  const service = options["service"].split('/')[1];
+  const system = options["system"];
+  const account = options["account"];
+  const project = options["project"];
+  const partition = options["partition"];
+  const reservation = options["reservation"];
+  const nodes = options["nodes"];
+  const runtime = options["runtime"];
+  const runtime_in_min = runtime / 60;
+  const gpus = options["gpus"];
+  const xserver = options["xserver"];
+
+  if (available && !(service in dropdownOptions) ) {
+    available = false;
+    reason += "service";
+  }
+  if (available && system !== undefined) {
+    if (!(system in dropdownOptions[service])) {
+      available = false;
+      reason += "system";
+    }
+  }
+  if (available && account !== undefined) {
+    if (!(account in dropdownOptions[service][system])) {
+      available = false;
+      reason += "account";
+    }
+  }
+  if (available &&  project !== undefined) {
+    if (!(project in dropdownOptions[service][system][account])) {
+      available = false;
+      reason += "project";
+    }
+  }
+  if (available &&  partition !== undefined) {
+    if (!(partition in dropdownOptions[service][system][account][project])) {
+      available = false;
+      reason += "partition";
+    }
+  }
+  if (available &&  reservation !== undefined) {
+    setFalse = true;
+    for ( const reservation_dict of dropdownOptions[service][system][account][project][partition] ){
+      if ( reservation == reservation_dict.ReservationName )  {
+        if (reservation_dict.State == "ACTIVE") {
+          setFalse = false;
+          break;
+        }
+      }
+    }
+    if ( setFalse ) {
+      available = false;
+      reason += "reservation";
+    }
+  }
+  // Resources
+  const resourceInfos = {{auth_state.get("options_form").get("resources") | tojson}} || {};
+  const partitionResources = ( (resourceInfos[service] || {}) [system] || {}) [partition] || {};
+  if (available && nodes !== undefined) {
+    let min = (partitionResources.nodes.minmax || [0,1])[0];
+    let max = (partitionResources.nodes.minmax || [0,1])[1];
+    if (nodes < min || nodes > max) {
+      available = false;
+      reason += "number of nodes";
+    }
+  }
+  if (available && gpus !== undefined) {
+    let min = (partitionResources.gpus.minmax || [0,1])[0];
+    let max = (partitionResources.gpus.minmax || [0,1])[1];
+    if (gpus < min || gpus > max) {
+      available = false;
+      reason += "number of GPUs";
+    }
+  }
+  if (available && runtime !== undefined) {
+    let min = (partitionResources.runtime.minmax || [0,1])[0];
+    let max = (partitionResources.runtime.minmax || [0,1])[1];
+    if (runtime_in_min < min || runtime_in_min > max) {
+      available = false;
+      reason += "runtime";
+    }
+  }
+  if (available && xserver !== undefined) {
+    if (!("xserver" in partitionResources)) {
+      available = false;
+      reason += "XServer";
+    }
+  }
+
+  if (!available) setLabAsNA(id, reason);
+  return available;
+}
+
+function setLabAsNA(id, reason) {
+  $(`#${id}-start-btn, #${id}-open-btn, #${id}-cancel-btn, #${id}-stop-btn`).addClass("d-none disabled");
+  $(`#${id}-na-btn`).removeClass("d-none");
+  $(`#${id}-na-status`).html(1);
+  $(`#${id}-na-info`).removeClass("d-none").html(reason);
+}
+
+function setUserOptions(id, options, available) {
   const name = options["name"];
   const service = options["service"].split('/')[1];
   const system = options["system"];
@@ -872,37 +1027,85 @@ function setUserOptions(id, options) {
   const modules = options["additional_spawn_options"];
 
   $(`#${id}-name-input`).val(name);
-  updateService(id, service);
-  updateSystems(id, service, system);
-  updateAccounts(id, service, system, account);
-  updateProjects(id, service, system, account, project);
-  updatePartitions(id, service, system, account, project, partition);
-  updateReservation(id, service, system, account, project, partition, reservation);
-  updateResources(id, service, system, account, project, partition, nodes, gpus, runtime, xserver);
-  updateModules(id, service, system, account, project, partition, modules);
-  if (na == "1") {
-    $(`input[id*=${id}], select[id*=${id}]`).attr("disabled", true);
+  if (available) {
+    {#- Set allowed values. Do not rely on change events here as without
+        passing a value explicitely, the first allowed option would be 
+        chosen regardless of the user option value. #}
+    updateService(id, service);
+    updateSystems(id, service, system);
+    updateAccounts(id, service, system, account);
+    updateProjects(id, service, system, account, project);
+    updatePartitions(id, service, system, account, project, partition);
+    updateReservation(id, service, system, account, project, partition, reservation);
+    updateResources(id, service, system, account, project, partition, nodes, gpus, runtime, xserver);
+    updateModules(id, service, system, account, project, partition, modules);
   }
-}
+  else {
+    function _setSelectOption(key, value) {
+      if (value) $(`#${id}-${key}-select`).append(`<option value="${value}">${value}</option>`);
+      updateLabConfigSelect($(`#${id}-${key}-select`), value);
+    }
 
-function _appendToLog(htmlMsg, log) {
-  try { var htmlText = $(htmlMsg).text(); }
-  catch { var htmlText = htmlMsg; }
-  log.append($('<div class="log-div">').html(htmlMsg));
-}
+    function _setInputValue(key, value) {
+      if (value) $(`#${id}-${key}-input`).val(value);
+      else $(`#${id}-${key}-input-div`).hide();
+    }
 
-function _updateProgressPercentage(id, text, progress) {
-  var progressBar = $(`#${id}-progress-bar`);
-  var progressInfo = $(`#${id}-progress-info-text`);
-  progressBar.width(100).html(`<b>${progress}%</b>`);
-  progressInfo.html(text);
-}
+    $(`input[id*=${id}], select[id*=${id}]`).addClass("no-update");
 
-function _updateProgressState(id, text, bg) {
-  var progressBar = $(`#${id}-progress-bar`);
-  var progressInfo = $(`#${id}-progress-info-text`);
-  progressBar.width(100).addClass(bg).html("");
-  progressInfo.html(text);
+    const serviceInfos = {{custom_config.get("services") | tojson}};
+    var serviceName = serviceInfos.JupyterLab.options[service].name;
+    // Selects which are always visible
+    $(`#${id}-version-select`).append(`<option value="${service}">${serviceName}</option>`);
+    _setSelectOption("system", system);
+    _setSelectOption("account", account);
+    _setSelectOption("project", project);
+    _setSelectOption("partition", partition);
+    // Reservation
+    var hasReservationInfo = false;
+    if (reservation) {
+      const systemReservationInfos = {{auth_state.get("options_form").get("reservations") | tojson}}[system] || [];
+      for (const reservationInfo of systemReservationInfos) {
+        if (reservationInfo.ReservationName == reservation) {
+          hasReservationInfo = true;
+          var inactive = reservationInfo.State == "INACTIVE";
+          if (inactive) {
+            $(`#${id}-reservation-select`).append(`<option value="${reservation}">${reservation} [INACTIVE]</option>`);
+          }
+          else {
+            $(`#${id}-reservation-select`).append(`<option value="${reservation}">${reservation}</option>`);
+          }
+          $(`#${id}-reservation-select`).trigger("change");
+        }
+      }
+      if (!hasReservationInfo) $(`#${id}-reservation-select`).append(`<option value="${reservation}">${reservation}</option>`);
+
+    }
+    else {
+      $(`#${id}-reservation-select-div`).hide();
+      $(`#${id}-reservation-hr`).hide();
+    }
+    if (hasReservationInfo) $(`#${id}-reservation-info-div`).show()
+    else $(`#${id}-reservation-info-div`).hide();
+    // Resources
+    if ((nodes || runtime || gpus || xserver) !== undefined) {
+      _setInputValue("nodes", nodes);
+      _setInputValue("runtime", runtime_in_min);
+      _setInputValue("gpus", gpus);
+      {#- Don't have info about resources, so just never show the xserver checkbox #}
+      _setInputValue("xserver", xserver);
+
+    }
+    else {
+      $(`#${id}-resources-tab`).addClass("disabled");
+    }
+    // Modules
+    updateModules(id, service, system, account, project, partition, modules);
+
+    // Disable all user input elements if N/A
+    $(`input[id*=${id}]`).attr("disabled", true);
+    $(`select[id*=${id}]`).not("[id*=log]").addClass("disabled");
+  }
 }
 
 function spawnStatusChanged(event) {
@@ -926,8 +1129,8 @@ function spawnStatusChanged(event) {
           .append(`<option value="${startTime}">${startTime}</option>`)
           .val("latest");
       }
-      let progress_url = `${jhdata.base_url}api/users/${jhdata.user}/servers/${id}/progress`;
-      evtSources[id] = new EventSource(progress_url);
+      let progressUrl = `${jhdata.base_url}api/users/${jhdata.user}/servers/${id}/progress?_xsrf=${window.jhdata.xsrf_token}`;
+      evtSources[id] = new EventSource(progressUrl);
       evtSources[id].onmessage = function (e) {
         onEvtMessage(e, id);
       }
@@ -947,8 +1150,6 @@ function spawnStatusChanged(event) {
 }
 
 function onEvtMessage(event, id) {
-  // console.log(event);
-
   var tr = $(`.lab-summary-tr[data-server-id=${id}]`);
   var collapsibleTr = $(`.lab-collapsible-tr[data-server-id=${id}]`)
   var cancelBtn = tr.find(".btn-cancel-lab");
@@ -963,7 +1164,7 @@ function onEvtMessage(event, id) {
       if (evt.failed) {  // Spawn failed
         _updateProgressState(id, "last spawn failed", "bg-danger");
         // Change buttons to start or N/A
-        var na = tr.find(".na-status").text();
+        var na = tr.find(".na-status").text() || 0;
         if (na != "0") {
           tr.find(".btn-na-lab").removeClass("d-none")
           tr.find(".btn-start-lab").addClass("d-none");
@@ -1011,7 +1212,6 @@ function onEvtMessage(event, id) {
     var htmlMsg = evt.message;
   }
   if (htmlMsg) {
-    htmlMsg = htmlMsg.replace(/&nbsp;/g, ' ');
     // Only append if latest log is selected
     if ($(`#${id}-log-select`).val() == "latest")
       _appendToLog(htmlMsg, $(`#${id}-log`));
@@ -1053,10 +1253,10 @@ function updateSpawnProgress() {
     var collapse = $(`.lab-collapsible-tr[data-server-id=${id}]`);
     collapse.find(".btn-delete-lab").addClass("disabled");
     // Update progress with percentage also
-    var progressBar = _updateProgressPercentage(id, "spawning...", currentProgress);
+    _updateProgressPercentage(id, "spawning...", currentProgress);
     // Add an event listener to catch and display updates.
-    var progress_url = `${jhdata.base_url}api/users/${jhdata.user}/servers/${id}/progress`;
-    evtSources[id] = new EventSource(progress_url);
+    var progressUrl = `${jhdata.base_url}api/users/${jhdata.user}/servers/${id}/progress?_xsrf=${window.jhdata.xsrf_token}`;
+    evtSources[id] = new EventSource(progressUrl);
     {%- endif %}
   {%- elif s._failed or s._cancel_event_yielded %}
   var id = "{{s.name | safe}}";
@@ -1072,28 +1272,27 @@ function updateSpawnProgress() {
   }
 }
 
-$(document).ready(function() {
-  for (const [id, options] of Object.entries(userOptions)) {
-    setUserOptions(id, options);
-  }
-  updateSpawnProgress();
-  
-  {#- For new labs, only the first option has to be 
-  updated manually. All other updates will be triggered
-  via onChange and set default values. #}
-  updateService("{{ new }}");
-  $("#{{ new }}-log-select").prepend(`<option value="latest">latest</option>`);
+for (const [id, options] of Object.entries(userOptions)) {
+  let available = checkIfAvailable(id, options);
+  setUserOptions(id, options, available);
+}
+updateSpawnProgress();
 
-  // Remove all tab warnings since initial changes shouldn't cause warnings
-  $("[id$=tab-warning]").addClass("invisible");
+{#- For new labs, only the first option has to be 
+updated manually. All other updates will be triggered
+via onChange and set default values. #}
+updateService("{{ new }}");
+$("#{{ new }}-log-select").prepend(`<option value="latest">latest</option>`);
 
-  // Add event source for start and stop events
-  let notification_url = `${jhdata.base_url}api/users/${jhdata.user}/notifications/spawners/spawn`;
-  let spawnStatusChangedEvtSource = new EventSource(notification_url);
-  spawnStatusChangedEvtSource.onmessage = spawnStatusChanged;  // defined in handleServers.js
+// Remove all tab warnings since initial changes shouldn't cause warnings
+$("[id$=tab-warning]").addClass("invisible");
 
-})
+// Add event source for start and stop events
+let notification_url = `${jhdata.base_url}api/users/${jhdata.user}/notifications/spawners/spawn?_xsrf=${window.jhdata.xsrf_token}`;
+let spawnStatusChangedEvtSource = new EventSource(notification_url);
+spawnStatusChangedEvtSource.onmessage = spawnStatusChanged;  // defined in handleServers.js
 </script>
+
 <script>
 $("nav [id$=nav-item]").removeClass("active");
 $("#start-nav-item, #collapse-start-nav-item").addClass("active");
