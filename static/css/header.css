@@ -1,3 +1,5 @@
+@import url(color.css);
+
 nav .nav-link {
   font-size: 19px;
   border-bottom: 5px solid transparent;
@@ -8,8 +10,8 @@ nav .nav-link:hover,
 nav .nav-link.active,
 .navbar-collapse .navlink:hover,
 .navbar-collapse .navlink.active {
-  border-bottom: 5px solid #023d6b;
-  color: #023d6b;
+  border-bottom: 5px solid  var(--first-color);
+  color:  var(--first-color);
   font-weight: bold;
 }
 

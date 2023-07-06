@@ -1,5 +1,7 @@
+@import url(color.css);
+
 a {
-  color: #adbde3;
+  color:  var(--second-color);
 }
 
 a:hover {
