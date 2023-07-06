@@ -1,3 +1,5 @@
+@import url(color.css);
+
 td h6 {
   font-size: .75rem;
 }
@@ -13,11 +15,11 @@ tr.lab-collapsible-tr {
 .table-new-lab {
   --bs-table-bg: #fff;
   --bs-table-striped-bg: #fff;
-  --bs-table-striped-color: #023d6b;
+  --bs-table-striped-color:  var(--first-color);
   --bs-table-active-bg: #fff;
-  --bs-table-active-color: #023d6b;
-  --bs-table-hover-bg: #e5e6e7;
-  --bs-table-hover-color: #023d6b;
+  --bs-table-active-color:  var(--first-color);
+  --bs-table-hover-bg:  var(--fourth-color);
+  --bs-table-hover-color:  var(--first-color);
   color: #000;
   text-transform: uppercase
 }
@@ -28,7 +30,7 @@ Info icon
 */
 
 .progress-log-btn {
-  color: #023d6b;
+  color:  var(--first-color);
 }
 
 .progress-log-btn:hover {
@@ -70,12 +72,12 @@ Vertical tabs
   display: flex;
   justify-content: space-between;
   text-align: start;
-  color: #023d6b;
-  border: 1px solid #023d6b !important;
+  color:  var(--first-color);
+  border: 1px solid  var(--first-color) !important;
 }
 
 .nav-pills button.active {
-  background-color: #023d6b !important;
+  background-color:  var(--first-color) !important;
 }
 
 .nav-pills svg {

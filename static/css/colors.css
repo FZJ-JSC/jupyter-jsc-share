@@ -1,0 +1,9 @@
+/* Define colors */
+:root {
+    --first-color:#023d6b;   /*#023d6b*/
+    --second-color:#adbde3;  /*#adbde3*/
+    --third-color:#002036;   /*#002036*/
+    --fourth-color:#e5e6e7;  /*#e5e6e7*/
+    --fifth-color:#e9ecef;   /*#e9ecef*/
+    --sixth-color:##225f8d;   /*##225f8d*/
+}
