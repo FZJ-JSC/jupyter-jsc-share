@@ -2,15 +2,15 @@ td h6 {
   font-size: .75rem;
 }
 
-tr.lab-summary-tr {
+tr.summary-tr {
   height: 73px
 }
 
-tr.lab-collapsible-tr {
+tr.collapsible-tr {
   height: unset;
 }
 
-.table-new-lab {
+.new-spawner-tr {
   --bs-table-bg: #fff;
   --bs-table-striped-bg: #fff;
   --bs-table-striped-color: #023d6b;
@@ -95,6 +95,31 @@ Vertical tabs
   box-shadow: 0 0 0 0.25rem rgb(25, 135, 84, 0.25) !important;
 }
 
+/* Module info link hover */
+.module-info-link-div {
+  position: relative;
+  overflow: hidden;
+  width: 16px;
+  height: 16px; 
+}
+
+.module-info-link {
+  position: absolute;
+  left: -100px;
+  top: -0.005rem;
+  height: 16px;
+  width: 16px;
+  transition: 0.25s;
+}
+
+.module-info:hover .module-info-link {
+  left: 0;
+}
+
+.module-info:hover {
+  text-decoration: none;
+}
+
 
 /* Pre, mainly for reservation info */
 pre {
@@ -103,4 +128,8 @@ pre {
   white-space: -pre-wrap;      /* Opera 4-6 */
   white-space: -o-pre-wrap;    /* Opera 7 */
   word-wrap: break-word;       /* Internet Explorer 5.5+ */
+}
+
+div[id$="na-info"] {
+  white-space: pre-wrap;
 }

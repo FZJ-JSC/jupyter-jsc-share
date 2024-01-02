@@ -7,21 +7,38 @@
 {%- endmacro -%}
 
 {%- macro number_of_users(system) -%}
-<div class="d-inline-block text-muted ms-1" data-toggle="users-tooltip" title="Number of active {%- if system == 'jupyter' %} users {%- else %} servers {%- endif -%}">
-  {{ svg.users_svg | safe }}
+  {%- if system == "jupyter" -%}
+    {%- set system_svg = svg.users_svg -%}
+    {%- set url_suffix = "" -%}
+  {%- elif system == "jsccloud"%}
+    {%- set system_svg = svg.servers_svg -%}
+    {%- set url_suffix = "var-system=JSC-Cloud" -%}
+  {%- else -%}
+    {%- set system_svg = svg.servers_svg -%}
+    {%- set url_suffix = "var-system=" + system.upper() -%}
+  {%- endif -%}
+<a class="system-users d-inline-block text-muted ms-1" 
+  data-bs-toggle="tooltip" data-bs-placement="top" title="Number of active {%- if system == 'jupyter' %} users in the last 24 hours {%- else %} servers {%- endif -%}"
+  href="https://{{hostname}}/grafana/?{{url_suffix}}" target="_blank">
   <span id="{{system}}-users">0</span>
-</div>
+  <span> {{ system_svg | safe }} </span>
+  <div class="system-users-link-div d-inline-block">
+    <span class="system-users-link" id="{{system}}-users-link">
+      {{ svg.link_svg | safe }}
+    </span>
+  </div>
+</a>
 {%- endmacro -%}
 
 {%- macro ampel(system, href) -%}
 {%- set system_lower = system.lower() %}
 <div id="ampel-{{system_lower}}" class="text-center">
   <img class="ampel-img" src='{{static_url( "images/footer/systems/" + system_lower + ".svg?v=" + random_int(10) )}}' />
-  <a id="ampel-{{system_lower}}-tooltip" href="{{href}}" target="_blank" class="align-middle" data-toggle="ample-tooltip">
+  <a id="ampel-{{system_lower}}-tooltip" href="{{href}}" target="_blank" class="align-middle" data-bs-toggle="tooltip" data-bs-placement="top">
     {%- if system == "JUPYTER" -%}
     Jupyter-JSC
-    {%- elif system == "HDFCLOUD" -%}
-    HDF-Cloud
+    {%- elif system == "JSCCLOUD" -%}
+    JSC-Cloud
     {%- else -%}
     {{ system }}
     {%- endif -%}
@@ -34,13 +51,33 @@
 {%- block footer -%}
 <footer class="navbar mt-auto p-0">
   <div id="footer-top" class="container-fluid justify-content-evenly p-4">
-    {{ ampel("JUPYTER", "https://status.jsc.fz-juelich.de/services/40") }}
-    {{ ampel("JUWELS", "https://status.jsc.fz-juelich.de/services/13") }}
-    {{ ampel("JURECA", "https://status.jsc.fz-juelich.de/services/1") }}
-    {{ ampel("JUSUF", "https://status.jsc.fz-juelich.de/services/30") }}
-    {{ ampel("DEEP", "https://status.jsc.fz-juelich.de/services/43") }}
-    {{ ampel("HDFML", "https://status.jsc.fz-juelich.de/services/21") }}
-    {{ ampel("HDFCLOUD", "https://status.jsc.fz-juelich.de/services/32") }}
+    <div id="footerSystemsCarousel" class="carousel carousel-dark slide w-100" data-bs-ride="carousel" data-bs-interval="10000">
+      <div class="carousel-inner">
+        <div class="carousel-item active">
+          <div class="d-flex justify-content-around">
+            {{ ampel("JUPYTER", "https://status.jsc.fz-juelich.de/services/40") }}
+            {{ ampel("JUWELS", "https://status.jsc.fz-juelich.de/services/13") }}
+            {{ ampel("JURECA", "https://status.jsc.fz-juelich.de/services/1") }}
+            {{ ampel("JUSUF", "https://status.jsc.fz-juelich.de/services/30") }}
+          </div>
+        </div>
+        <div class="carousel-item">
+          <div class="d-flex justify-content-around">
+            {{ ampel("DEEP", "https://status.jsc.fz-juelich.de/services/43") }}
+            {{ ampel("HDFML", "https://status.jsc.fz-juelich.de/services/21") }}
+            {{ ampel("JSCCLOUD", "https://status.jsc.fz-juelich.de/services/44") }}
+          </div>
+        </div>
+      </div>
+      <button class="carousel-control-prev" type="button" data-bs-target="#footerSystemsCarousel" data-bs-slide="prev" style="width: unset;">
+        <span class="carousel-control-prev-icon"></span>
+        <span class="visually-hidden">Previous</span>
+      </button>
+      <button class="carousel-control-next" type="button" data-bs-target="#footerSystemsCarousel" data-bs-slide="next" style="width: unset;">
+        <span class="carousel-control-next-icon"></span>
+        <span class="visually-hidden">Next</span>
+      </button>
+    </div>
   </div>
   <div id="footer-bottom" class="container-fluid justify-content-center">
     {%- set logo_width = "220px" -%}
@@ -48,11 +85,11 @@
     <a class="py-2 {{div_classes}}" target="_blank" href="https://www.fz-juelich.de">&copy; Forschungszentrum Jülich</a>
     <div class="flex-grow-1 {{div_classes}}">
       {%- set footer_margin = "m-1" %}
-      <a href="/hub/imprint">Legal Notice</a>
+      <a href="{{ base_url }}imprint">Legal Notice</a>
       <span class="{{ footer_margin }}">|</span>
-      <a href="/hub/privacy">Privacy Policy</a>
+      <a href="{{ base_url }}privacy">Privacy Policy</a>
       <span class="{{ footer_margin }}">|</span>
-      <a href="/hub/terms">Terms of Service</a>
+      <a href="{{ base_url }}terms">Terms of Service</a>
       <span class="{{ footer_margin }}">|</span>
       <a href="mailto:ds-support@fz-juelich.de?subject=Jupyter-JSC Support&amp;body=Please describe your problem here. (english or german)">Support</a>
     </div>
@@ -74,11 +111,6 @@ require(["jquery", "jhapi"], function ($, JHAPI) {
   var base_url = window.jhdata.base_url;
   var api = new JHAPI(base_url);
 
-  $(function () {
-    $('[data-toggle="ample-tooltip"]').tooltip();
-    $('[data-toggle="users-tooltip"]').tooltip();
-  })
-
   function updateSystemHoverTooltips() {
     api.api_request( "incidents", {
       success: function(data) {
@@ -96,24 +128,43 @@ require(["jquery", "jhapi"], function ($, JHAPI) {
   function updateNumberOfUsers() {
     api.api_request("usercount", {
       success: function(data) {
+        // Get all systems from footer and track if updated
+        var systems = {};
+        $("div[id^='ampel'").each((i, e) => {
+          let system = $(e).attr("id").split('-')[1];
+          systems[system] = false;
+        }) 
+        // Update systems with info from request
         for (const [system, usercount] of Object.entries(data)) {
           switch (system) {
             case 'jupyterhub':
               $("#jupyter-users").html(usercount);
+              systems['jupyter'] = true;
               break;
-            case 'HDF-Cloud':
-              $(`#hdfcloud-users`).html(usercount['total']);
+            case 'JSC-Cloud':
+              $(`#jsccloud-users`).html(usercount['total']);
+              systems['jsccloud'] = true;
               break;
             default:
               $(`#${system.toLowerCase()}-users`).html(usercount['total']);
+              systems[`${system.toLowerCase()}`] = true;
               var partitionInfos = "";
               for (const [partition, users] of Object.entries(usercount['partitions']))
               {
                 partitionInfos += `\n${partition}: ${users}`;
               }
               $(`#${system.toLowerCase()}-users`)
-                .parents("[data-toggle]")
+                .parents("[data-bs-toggle]")
                 .attr("data-bs-original-title", `Number of active servers${partitionInfos}`);
+          }
+        }
+        // If there was no info about a system, set running labs to 0 and reset tooltip
+        for (const [system, systemInfo] of Object.entries(systems)) {
+          if (systemInfo == false) {
+            $(`#${system}-users`).html(0);
+            $(`#${system.toLowerCase()}-users`)
+              .parents("[data-toggle]")
+              .attr("data-bs-original-title", `Number of active servers`);
           }
         }
       }
@@ -123,9 +174,13 @@ require(["jquery", "jhapi"], function ($, JHAPI) {
   $(document).ready(function() {
     updateSystemHoverTooltips();
     updateNumberOfUsers();
-    setInterval(updateNumberOfUsers, 60000);
   })
 
+  let generalSpawnUpdateNotificationUrl = `${jhdata.base_url}api/notifications/spawners?_xsrf=${window.jhdata.xsrf_token}`;
+  let spawnStartStopEvtSource = new EventSource(generalSpawnUpdateNotificationUrl);
+  spawnStartStopEvtSource.onmessage = (e) => {
+    updateNumberOfUsers();
+  };
 })
 </script>
 {%- endblock -%}

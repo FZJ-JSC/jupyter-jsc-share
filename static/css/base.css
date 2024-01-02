@@ -107,8 +107,46 @@ a.nav-link:hover {
 
 /* Log divs */
 
-.log-div:not(:first-child) {
-  padding-top: 0.25rem;
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary {
+  position: relative;
+  list-style: none;
+  color: black;
+}
+
+.log-div {
+  padding: 0.5rem;
+  border-top: 1px solid #dfe0e1;
+  color: #6c757d;
+}
+
+.log-div:first-child {
+    border-top: none;
+}
+
+details summary:after {
+  content: "+";
+  color: black;
+  position: absolute;
+  font-size: 1.5rem;
+  line-height: 0;
+  margin-top: 0.75rem;
+  padding-right: 0.5rem;
+  right: 0;
+  transform-origin: center;
+  transition: 200ms linear;
+}
+
+details[open] summary ~ * {
+  animation: open 0.3s ease-in-out;
+}
+
+details[open] summary:after {
+  transform: rotate(45deg);
+  font-size: 1.75rem;
 }
 
 
