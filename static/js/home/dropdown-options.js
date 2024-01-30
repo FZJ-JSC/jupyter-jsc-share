@@ -86,7 +86,7 @@ define(["jquery"], function ($) {
       $(`#${id}-flavor-info-div`).append(diagramHtml);
     }
     enableTooltips();  // Defined in page.html
-    Object.keys(systemFlavors).length == 0 ? $(`#${id}-flavor-select-div, #${id}-flavor-legend-div, #${id}-flavor-info-div`).addClass("d-none") : $(`#${id}-flavor-select-div, #${id}-flavor-legend-div, #${id}-flavor-info-div`).removeClass("d-none");
+    Object.keys(systemFlavors).length == 0 ? $(`#${id}-flavor-select-div, #${id}-flavor-legend-div, #${id}-flavor-info-div`).hide() : $(`#${id}-flavor-select-div, #${id}-flavor-legend-div, #${id}-flavor-info-div`).show();
     updateLabConfigSelect(select, value, currentVal);
   }
 
@@ -101,7 +101,7 @@ define(["jquery"], function ($) {
     for (const account of Object.keys(accountsAllowed).sort()) {
       select.append(`<option value="${account}">${account}</option>`);
     }
-    Object.keys(accountsAllowed).length == 0 ? $(`#${id}-account-select-div`).addClass("d-none") : $(`#${id}-account-select-div`).removeClass("d-none");
+    Object.keys(accountsAllowed).length == 0 ? $(`#${id}-account-select-div`).hide() : $(`#${id}-account-select-div`).show();
     updateLabConfigSelect(select, value, currentVal);
   }
 
@@ -116,7 +116,7 @@ define(["jquery"], function ($) {
     for (const project of Object.keys(projectsAllowed).sort()) {
       select.append(`<option value="${project}">${project}</option>`);
     }
-    Object.keys(projectsAllowed).length == 0 ? $(`#${id}-project-select-div`).addClass("d-none") : $(`#${id}-project-select-div`).removeClass("d-none");
+    Object.keys(projectsAllowed).length == 0 ? $(`#${id}-project-select-div`).hide() : $(`#${id}-project-select-div`).show();
     updateLabConfigSelect(select, value, currentVal);
   }
 
@@ -145,7 +145,7 @@ define(["jquery"], function ($) {
     if (computeNodes.length > 0) {
       select.append('<optgroup label="Compute Nodes">');
       const systemUpper = system.replace('-', '').toUpperCase();
-      if ((window.systemsHealth[systemUpper] || 0) >= (window.systemsHealth.compute_threshold || 40)) {
+      if ((window.systemsHealth[systemUpper] || 0) >= (window.systemsHealth.threshold.compute || 40)) {
         computeNodes.forEach((x) => select.append(`<option value="${x}" disabled>${x} (in maintenance)</option>`));
       }
       else {
@@ -153,7 +153,7 @@ define(["jquery"], function ($) {
       }
       select.append('</optgroup>');
     }
-    Object.keys(partitionsAllowed).length == 0 ? $(`#${id}-partition-select-div`).addClass("d-none") : $(`#${id}-partition-select-div`).removeClass("d-none");
+    Object.keys(partitionsAllowed).length == 0 ? $(`#${id}-partition-select-div`).hide() : $(`#${id}-partition-select-div`).show();
     updateLabConfigSelect(select, value, currentVal);
   }
 
@@ -196,7 +196,7 @@ define(["jquery"], function ($) {
     let nodesInput = $(`input#${id}-nodes-input`);
     let gpusInput = $(`input#${id}-gpus-input`);
     let runtimeInput = $(`input#${id}-runtime-input`);
-    let xserverCheckboxInput = $(`input#${id}-xcbserver-input`);
+    let xserverCheckboxInput = $(`input#${id}-xserver-cb-input`);
     let xserverInput = $(`input#${id}-xserver-input`);
     let tabWarning = $(`#${id}-resources-tab-warning`);
     const currentNodeVal = nodesInput.val();
@@ -264,7 +264,7 @@ define(["jquery"], function ($) {
 
         if ("xserver" in partitionResources) {
           let cblabel = partitionResources.xserver.cblabel || "Activate XServer";
-          $(`label[for*=${id}-xcbserver-input]`).text(cblabel);
+          $(`label[for*=${id}-xserver-cb-input]`).text(cblabel);
           var min = (partitionResources.xserver.minmax || [0, 1])[0];
           var max = (partitionResources.xserver.minmax || [0, 1])[1];
           let label = partitionResources.xserver.label || "Use XServer GPU Index";
@@ -276,7 +276,7 @@ define(["jquery"], function ($) {
             if (!currentXserverVal) tabWarning.removeClass("invisible");
             // Determine if XServer checkbox should be shown
             if (partitionResources.xserver.checkbox || false) {
-              $(`#${id}-xcbserver-input-div`).show();
+              $(`#${id}-xserver-cb-input-div`).show();
               if (currentXserverCbVal) xserverCheckboxInput[0].checked = true;
               else {
                 if (partitionResources.xserver.default_checkbox || false)
@@ -286,7 +286,7 @@ define(["jquery"], function ($) {
               if (!currentXserverCbVal && xserverCheckboxInput[0].checked) tabWarning.removeClass("invisible");
             }
             else {
-              $(`#${id}-xcbserver-input-div`).hide();
+              $(`#${id}-xserver-cb-input-div`).hide();
               xserverCheckboxInput[0].checked = true;
               if (!currentXserverCbVal) tabWarning.removeClass("invisible");
             }
@@ -296,7 +296,7 @@ define(["jquery"], function ($) {
           else $(`#${id}-xserver-input-div`).hide();
         }
         else {
-          $(`#${id}-xcbserver-input-div`).hide();
+          $(`#${id}-xserver-cb-input-div`).hide();
           $(`#${id}-xserver-input-div`).hide();
           if (currentXserverCbVal || currentXserverVal) tabWarning.removeClass("invisible");
         }
@@ -319,7 +319,7 @@ define(["jquery"], function ($) {
     var enableModulesTab = false;
 
     for (const [moduleSet, modules] of Object.entries(moduleInfo)) {
-      $(`#${id}-${moduleSet}-div`).addClass("d-none");
+      $(`#${id}-${moduleSet}-div`).hide();
       var insertIndex = -1;
       for (const [module, moduleInfo] of Object.entries(modules)) {
         if (moduleInfo.sets.includes(service)) {
@@ -331,7 +331,7 @@ define(["jquery"], function ($) {
               // Module is compute only, but partition is interactive, so do nothing.
             }
             else {
-              $(`#${id}-${moduleSet}-div`).removeClass("d-none");
+              $(`#${id}-${moduleSet}-div`).show();
               enableModulesTab = true;
               defaultOptions.push(module);
               // If checkbox already exists, do nothing

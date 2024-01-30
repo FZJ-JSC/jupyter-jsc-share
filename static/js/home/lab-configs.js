@@ -10,7 +10,7 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
     const interactivePartitions = (systemInfo[system] || {}).interactivePartitions || [];
     if (!interactivePartitions.includes(partition)) {
       const systemUpper = system.replace('-', '').toUpperCase();
-      if ((window.systemsHealth[systemUpper] || 0) >= (window.systemsHealth.compute_threshold || 40)) return true;
+      if ((window.systemsHealth[systemUpper] || 0) >= (window.systemsHealth.threshold.compute || 40)) return true;
       else return false;
     }
   }
@@ -21,7 +21,7 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
 
     // Check if system is not available due to incident
     const systemUpper = options["system"].replace('-', '').toUpperCase();
-    if ((window.systemsHealth[systemUpper] || 0) >= (window.systemsHealth.interactive_threshold || 50)) {
+    if ((window.systemsHealth[systemUpper] || 0) >= (window.systemsHealth.threshold.interactive || 50)) {
       reason += "maintenance";
       utils.setLabAsNA(id, reason);
       return false;
@@ -175,6 +175,8 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
   var setUserOptions = function (id, options, available) {
     const name = options["name"];
     const service = getService(options);
+    const image = options["image"];
+    const userdata_path = options["userdata_path"];
     const system = options["system"];
     const flavor = options["flavor"];
     const account = options["account"];
@@ -194,6 +196,8 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
           chosen regardless of the user option value. */
       try {
         dropdowns.updateService(id, service);
+        if (image) $(`#${id}-image-input`).val(image);
+        if (userdata_path) $(`#${id}-image-mount-input`).val(userdata_path);
         dropdowns.updateSystems(id, service, system);
         dropdowns.updateFlavors(id, service, system, flavor);
         dropdowns.updateAccounts(id, service, system, account);
@@ -208,6 +212,7 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
     else {
       function _setSelectOption(key, value) {
         if (value) $(`#${id}-${key}-select`).append(`<option value="${value}">${value}</option>`);
+        else $(`#${id}-${key}-select-div`).hide();
         dropdowns.updateLabConfigSelect($(`#${id}-${key}-select`), value);
       }
 
@@ -219,11 +224,22 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
       $(`input[id*=${id}], select[id*=${id}]`).addClass("no-update");
 
       const serviceInfo = getServiceInfo();
-      var serviceName = (serviceInfo.JupyterLab.options[service] || {}).name || service;
+      let serviceName = (serviceInfo.JupyterLab.options[service] || {}).name || service;
 
       // Selects which are always visible
       $(`#${id}-version-select`).append(`<option value="${service}">${serviceName}</option>`);
       _setSelectOption("system", system);
+      _setInputValue("image", image);
+      if (userdata_path) {
+        $(`#${id}-image-mount-cb-input-div`)[0].checked = true;
+        $(`#${id}-image-mount-cb-input-div`).show();
+      }
+      else {
+        $(`#${id}-image-mount-cb-input-div`)[0].checked = false;
+        $(`#${id}-image-mount-cb-input-div`).hide();
+      }
+      _setInputValue("image-mount", userdata_path);
+      _setSelectOption("flavor", flavor);
       _setSelectOption("account", account);
       _setSelectOption("project", project);
       let maintenance = checkComputeMaintenance(system, partition);
@@ -308,8 +324,8 @@ define(["jquery", "home/utils", "home/dropdown-options"], function (
         // Update buttons to reflect pending state
         let tr = $(`tr.summary-tr[data-server-id=${id}]`);
         // _enableTrButtonsRunning
-        tr.find(".btn-na-lab, .btn-start-lab").addClass("d-none");
-        tr.find(".btn-open-lab, .btn-cancel-lab").removeClass("d-none").addClass("disabled");
+        tr.find(".btn-na-lab, .btn-start-lab").hide();
+        tr.find(".btn-open-lab, .btn-cancel-lab").show().addClass("disabled");
       }
     }
   }

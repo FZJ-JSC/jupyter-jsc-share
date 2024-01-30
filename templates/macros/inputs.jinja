@@ -1,12 +1,33 @@
-{%- macro create_text_input(id, key, label="", placeholder="", warning="", required=false) -%}
+{%- import "macros/svgs.jinja" as svg -%}
+
+{%- macro create_text_input(id, key, label="", placeholder="", pattern="", warning="", persistent_hover=False) -%}
 {#- Macro to create a text input #}
 {%- set key = key.lower() %}
-<div id="{{id}}-{{key}}-input-div"  class="row mb-3">
-  <label for="{{id}}-{{key}}-input" class="col-4 col-form-label">{{ label if label else key.capitalize() }}</label>
+{#- We use a different margin than the other input elements 
+since the warning  text will already create a margin.#}
+<div id="{{id}}-{{key}}-input-div"  class="row mb-1">  
+  <label for="{{id}}-{{key}}-input" class="col-4 col-form-label">
+    {{ label if label else key.capitalize() }}
+    {% if caller -%}
+    {% if persistent_hover -%}
+    <button type="button" class="btn"
+      data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true"
+      title="{{ caller() }}">
+      {{ svg.info_svg | safe }}
+    </button>
+    {%- else %}
+    <a class="lh-1 ms-3" style="padding-top: 1px;" 
+      data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true"
+      title="{{ caller() }}">
+      {{ svg.info_svg | safe }}
+    </a>
+    {%- endif %}
+    {%- endif %}
+  </label>
   <div class="col-8">
     <input type="text" class="form-control" id="{{id}}-{{key}}-input" 
-      placeholder="{{placeholder}}" {% if required -%}required{%- endif -%}>
-    <div class="invalid-feedback">{{ warning }}</div>
+      placeholder="{{placeholder}}" {% if pattern -%} pattern={{pattern}} {%- endif %}>
+    <div class="invalid-feedback">{{ warning }}</div>    
   </div>
 </div>
 {%- endmacro -%}

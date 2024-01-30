@@ -23,8 +23,7 @@
     {%- endif -%}
   {%- endif -%}
 {%- endfor -%}
-{%- set custom_config = auth_state.get("custom_config", {}) -%}
-{%- set new = "new_jupyterlab" -%}  {# id for new jupyterlabs. Cannot contain "-" #}
+{%- set new = "new-jupyterlab" -%}  {# id for new jupyterlabs #}
 
 {%- block main -%}
 <div class="container-fluid p-4">
@@ -99,7 +98,12 @@ spawnEvents["{{spawner.name}}"] = {{ spawner.state.get("events") | tojson }};
 spawnEvents["{{spawner.name}}"] = {"latest": []};
   {%- endif -%}
 {%- endfor %}
-var systemsHealth = {};
+var systemsHealth = {
+threshold: {
+    interactive: {{custom_config.get("incidentCheck", {}).get("healthThreshold", {}).get("interactive", 50) | int}}, 
+    compute: {{custom_config.get("incidentCheck", {}).get("healthThreshold", {}).get("compute", 40) | int}}
+  }
+};
 var flavorInfo = {};
 </script>
 
@@ -168,14 +172,14 @@ function onEvtMessage(event, id) {
         // Change buttons to start or N/A
         var na = tr.find(".na-status").text() || 0;
         if (na != "0") {
-          tr.find(".btn-na-lab").removeClass("d-none")
-          tr.find(".btn-start-lab").addClass("d-none");
+          tr.find(".btn-na-lab").show()
+          tr.find(".btn-start-lab").hide();
         } 
         else {
-          tr.find(".btn-na-lab").addClass("d-none");
-          tr.find(".btn-start-lab").removeClass("d-none disabled");
+          tr.find(".btn-na-lab").hide();
+          tr.find(".btn-start-lab").removeClass("disabled").show();
         }
-        tr.find(".btn-open-lab, .btn-cancel-lab").addClass("d-none disabled");
+        tr.find(".btn-open-lab, .btn-cancel-lab").addClass("disabled").hide();
         collapseBtns.removeClass("disabled");
       }
       else if (evt.ready) {  // Spawn successful
@@ -189,8 +193,8 @@ function onEvtMessage(event, id) {
             .addClass("bg-success")
             .html("");
           $(`#${id}-progress-info-text`).html("runnning");
-          cancelBtn.addClass("d-none disabled");
-          tr.find(".btn-stop-lab").removeClass("d-none disabled");
+          cancelBtn.addClass("disabled").hide();
+          tr.find(".btn-stop-lab").removeClass("disabled").show();
           tr.find(".btn-open-lab").removeClass("disabled");
           collapseBtns.removeClass("disabled");
           {%- endif %}
@@ -250,6 +254,18 @@ require(["jquery", "home/utils", "home/dropdown-options"], function (
   utils,
   dropdowns
 ) {
+  function _toggle_show_input(id, key, pattern) {
+    const showMount = $(`input#${id}-${key}-cb-input`)[0].checked;
+    if (showMount) {
+      $(`#${id}-${key}-input-div`).show();
+      $(`#${id}-${key}-input`).attr("required", true);
+      if (pattern) $(`#${id}-${key}-input`).attr("pattern", pattern);
+    } else {
+      $(`#${id}-${key}-input-div`).hide();
+      $(`#${id}-${key}-input`).removeAttr("required pattern");
+    }
+  }
+
   $("select[id*=version]").change(function() {
     const id = utils.getId(this);
     const values = utils.getLabConfigSelectValues(id);
@@ -262,6 +278,31 @@ require(["jquery", "home/utils", "home/dropdown-options"], function (
         console.log(e);
       }
     }
+
+    const serviceInfo = getServiceInfo();
+    const userInputInfo = (serviceInfo.JupyterLab.options[values.service] || {}).userInput || {};
+    var customImageInput = $(`input#${id}-image-input`);
+    var customMountInput = $(`#${id}-image-mount-input`);
+    var allUserInputDivs = $(`#${id}-image-input-div, #${id}-image-mount-cb-input-div, #${id}-image-mount-input-div`)
+    
+    var inputRequired = userInputInfo.required || false;
+    if (!inputRequired) {
+      dropdowns.resetInputElement(customImageInput, false);
+      dropdowns.resetInputElement(customMountInput, false);
+      allUserInputDivs.hide();
+    } else {
+      dropdowns.resetInputElement(customImageInput, true);
+      allUserInputDivs.show();
+      // Enable user data mount by default
+      $(`#${id}-image-mount-cb-input`)[0].checked = userInputInfo.defaultMountEnabled || true;;
+      customMountInput.val(userInputInfo.defaultMountPath || "/mnt/userdata");
+    }
+  });
+
+  $("input[id*=image-mount-cb-input]").change(function() {
+    const id = utils.getId(this, -4);
+    const pattern_check = "^\\/[A-Za-z0-9\\-\\/]+";
+    _toggle_show_input(id, "image-mount", pattern_check);
   });
 
   $("select[id*=system]").change(function() {
@@ -282,14 +323,14 @@ require(["jquery", "home/utils", "home/dropdown-options"], function (
     const serviceInfo = getServiceInfo();
     const systemInfo = getSystemInfo();
     // First check for system specific default option, then for general one
-    var defaultOption = ((systemInfo[values.system].services || {}).JupyterLab || {}).defaultOption || serviceInfo.JupyterLab.defaultOption;
+	  var defaultOption = (((systemInfo[values.system] || {}).services || {}).JupyterLab || {}).defaultOption || serviceInfo.JupyterLab.defaultOption;
     if (defaultOption && values.service != defaultOption) {
       // Not using default/latest version, show a warning message
       let reason = "<span style=\"color:darkorange;\">uses deprecated version</span>";
-      $(`#${id}-spawner-info`).removeClass("d-none").html(reason);
+      $(`#${id}-spawner-info`).show().html(reason);
     }
     else {
-      $(`#${id}-spawner-info`).addClass("d-none").html("");
+      $(`#${id}-spawner-info`).hide().html("");
     }
   });
 
@@ -336,14 +377,9 @@ require(["jquery", "home/utils", "home/dropdown-options"], function (
     }
   });
 
-  $("input[id*=xcbserver-input]").change(function() {
-    const id = utils.getId(this);
-    const showXServer = $(`input#${id}-xcbserver-input`)[0].checked;
-    if (showXServer) {
-      $(`#${id}-xserver-input-div`).show();
-    } else {
-      $(`#${id}-xserver-input-div`).hide();
-    }
+  $("input[id*=xserver-cb-input]").change(function() {
+    const id = utils.getId(this, -3);
+    _toggle_show_input(id, "xserver");
   });
 
   $("select[id*=reservation]").change(function() {
@@ -406,14 +442,7 @@ require(["jquery", "home/utils", "home/dropdown-options", "home/lab-configs"], f
     var incidentUrl = location.origin + window.jhdata.base_url + "api/incidents";
     var incidentData = await $.get( incidentUrl );
     for (const entry in incidentData) {
-      {#- Update thresholds #}
-      if (entry.includes("threshold")) {
-        systemsHealth[entry] = data[entry];
-      } 
-      {#- Update systems health #}
-      else {
-        systemsHealth[entry] = data[entry].health;
-      }
+        systemsHealth[entry] = incidentData[entry].health;
     }
 
     for  (const id of Object.keys(userOptions)) {

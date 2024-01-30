@@ -1,11 +1,12 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-require(["jquery", "jhapi", "utils", "home/utils"], function (
+require(["jquery", "jhapi", "utils", "home/utils", "home/lab-configs"], function (
   $,
   JHAPI,
   utils,
-  custom_utils
+  custom_utils,
+  lab
 ) {
   "use strict";
 
@@ -264,19 +265,21 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
   }
 
   function revertChanges() {
-    const id = getId(this);
+    const id = custom_utils.getId(this);
     var alert = $(this).siblings(".alert");
 
     const options = userOptions[id];
-    var name = options["name"];
+    const name = options.name;
+    // Do not send start_id when updating lab config
+    delete options.start_id;
 
     api.update_named_server(user, id, {
       data: JSON.stringify(options),
       success: function () {
-        $(`#${id}-name-input`).val(options["name"]);
+        $(`#${id}-name-input`).val(name);
         // Reset all user inputs to the values saved in the global user options
-        let available = checkIfAvailable(id, options);
-        setUserOptions(id, options, available);
+        let available = lab.checkIfAvailable(id, options);
+        lab.setUserOptions(id, options, available);
         // Remove all tab warnings since manual changes shouldn't cause warnings
         $("[id$=tab-warning]").addClass("invisible");
         // Show first tab after resetting values
@@ -290,7 +293,7 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
           .addClass("alert-success show p-1");
       },
       error: function (xhr) {
-        _showErrorAlert(alert, displayName, xhr.responseText);
+        _showErrorAlert(alert, name, xhr.responseText);
       }
     });
   }
@@ -321,8 +324,8 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
   function _enableTrButtons(tr, running) {
     if (running) {
       // Show open/cancel for starting labs
-      tr.find(".btn-na-lab, .btn-start-lab").addClass("d-none");
-      tr.find(".btn-open-lab, .btn-cancel-lab").removeClass("d-none");
+      tr.find(".btn-na-lab, .btn-start-lab").hide();
+      tr.find(".btn-open-lab, .btn-cancel-lab").show();
       // Disable until fitting event received from EventSource
       tr.find(".btn-open-lab, .btn-cancel-lab").addClass("disabled");
     }
@@ -330,14 +333,14 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
       // Show start or na for non-running labs
       var na = tr.find(".na-status").text() || 0;
       if (na != "0") {
-        tr.find(".btn-na-lab").removeClass("d-none disabled");
-        tr.find(".btn-start-lab").addClass("d-none");
+        tr.find(".btn-na-lab").removeClass("disabled").show();
+        tr.find(".btn-start-lab").hide();
       }
       else {
-        tr.find(".btn-na-lab").addClass("d-none")
-        tr.find(".btn-start-lab").removeClass("d-none disabled");
+        tr.find(".btn-na-lab").hide()
+        tr.find(".btn-start-lab").removeClass("disabled").show();
       }
-      tr.find(".btn-open-lab, .btn-cancel-lab, .btn-stop-lab").addClass("d-none");
+      tr.find(".btn-open-lab, .btn-cancel-lab, .btn-stop-lab").hide();
     }
   }
 
@@ -354,8 +357,8 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
     tr.find(".name-td").text(options.name);
     function _updateTd(key) {
       let configTdDiv = tr.find(`#${id}-config-td-div-${key}`);
-      if (options[key]) configTdDiv.removeClass("d-none");
-      else configTdDiv.addClass("d-none");
+      if (options[key]) configTdDiv.show();
+      else configTdDiv.hide();
       let configDiv = tr.find(`#${id}-config-td-${key}`);
       configDiv.text(options[key]);
     }
@@ -365,23 +368,27 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
 
   function _createDataDict(collapsibleTr) {
     var options = {}
-    options["name"] = _getDisplayName(collapsibleTr);
+    options.name = _getDisplayName(collapsibleTr);
 
     function _addSelectValue(param) {
       var select = collapsibleTr.find(`select[id*=${param}]`);
       var value = select.val();
       if (param == "version") {
-        param = "profile"
+        param = "profile";
         value = "JupyterLab/" + value;
       }
       if (value) options[param] = value;
     }
 
     function _addInputValue(param) {
-      var input = collapsibleTr.find(`input[id*=${param}]`);
+      var input = collapsibleTr.find(`input[id*=${param}]`).not(`[type=checkbox]`);
       var value = input.val();
       if (param == "xserver") {
-        if (!collapsibleTr.find(`input[id*=xcbserver-input]`)[0].checked) return;
+        if (!collapsibleTr.find(`input[id*=xserver-cb-input]`)[0].checked) return;
+      }
+      else if (param == "image-mount") {
+        if (!collapsibleTr.find(`input[id*=image-mount-cb-input]`)[0].checked) return;
+        param = "userdata_path";
       }
       if (value) options[param] = value;
     }
@@ -399,7 +406,7 @@ require(["jquery", "jhapi", "utils", "home/utils"], function (
 
     ["version", "system", "flavor", "account",
       "project", "partition", "reservation"].forEach(key => _addSelectValue(key));
-    ["nodes", "gpus", "runtime", "xserver"].forEach(key => _addInputValue(key));
+    ["image", "image-mount", "nodes", "gpus", "runtime", "xserver"].forEach(key => _addInputValue(key));
     _addCbValues("userModules");
     return options;
   }
